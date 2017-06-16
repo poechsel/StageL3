@@ -15,9 +15,9 @@ let parse () = Parser.main Lexer.token lexbuf
 
 (* la fonction que l'on lance ci-dessous *)
 let calc () =
-      let result = parse () in
-      (* Expr.affiche_expr result; print_newline (); flush stdout *)
-	compile result; flush stdout
+  let result = parse () in
+  (* Expr.affiche_expr result; print_newline (); flush stdout *)
+  compile result; flush stdout
 ;;
 
 let _ = calc()
