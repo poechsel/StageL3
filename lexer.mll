@@ -79,19 +79,21 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
   | '\n' {incr_linenum lexbuf; token lexbuf}
 
 
+  | "sizeof" {SIZEOF}
 
 
-  | '.' { DOT }
 
   | identifier_nondigit (identifier_nondigit | digit)* as s 
     { IDENT(s)}
+  | string_litteral as s
+    { STRING_LIT(s)}
 
 
 
 
 
   | character_constant as s
-    { CONSTANT(Ast.Char(s))}
+    { CONSTANT(Ast.CChar(s))}
 
     (** lexing floats**)
   | (digit_sequence? as a) ((("e" | "E") as exp_word) (sign as sgn) (digit_sequence as dgts)) (['f' 'F' 'l' 'L']? as suffix)
@@ -100,7 +102,7 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
         let num_b = Num.num_of_string "0" in
         let exp = Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), int_of_string dgts)) 
         in 
-        CONSTANT(Ast.Float(Ast.Dec, num_a, num_b, exp, suffix))
+        CONSTANT(Ast.CFloat(Ast.Dec, num_a, num_b, exp, suffix))
     }
 
   | (digit_sequence? as a) ('.' (digit_sequence? as b))  ((("e" | "E") as exp_word) (sign as sgn) (digit_sequence as dgts))? (['f' 'F' 'l' 'L']? as suffix)
@@ -114,7 +116,7 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
                     Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), int_of_string dgts)) 
             | _ -> None
         in 
-        CONSTANT(Ast.Float(Ast.Dec, num_a, num_b, exp, suffix))
+        CONSTANT(Ast.CFloat(Ast.Dec, num_a, num_b, exp, suffix))
   }
 
     | ("0x" | "0X") (hexadecimal_digit_sequence? as a) ('.' (hexadecimal_digit_sequence? as b))?  ((("p" | "P") as exp_word) (sign as sgn) (hexadecimal_digit_sequence as dgts)) (['f' 'F' 'l' 'L']? as suffix)
@@ -125,18 +127,18 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
             | Some b -> b) in
         let exp = Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), int_of_string dgts)) 
         in 
-        CONSTANT(Ast.Float(Ast.Hex, num_a, num_b, exp, suffix))
+        CONSTANT(Ast.CFloat(Ast.Hex, num_a, num_b, exp, suffix))
   }
 
 
     (** int **)
     | (octal_constant as s) (integer_suffix? as suffix)
     { let t = "0o" ^ String.sub s 1 (String.length s - 1)
-     in CONSTANT(Ast.Int(Ast.Oct, Num.num_of_string t, suffix))}
+     in CONSTANT(Ast.CInt(Ast.Oct, Num.num_of_string t, suffix))}
     | (decimal_constant as s) (integer_suffix? as suffix)
-    {CONSTANT(Ast.Int(Ast.Dec, Num.num_of_string s, suffix))}
+    {CONSTANT(Ast.CInt(Ast.Dec, Num.num_of_string s, suffix))}
     | (hexadecimal_constant as s) (integer_suffix? as suffix)
-    {CONSTANT(Ast.Int(Ast.Dec, Num.num_of_string s, suffix))}
+    {CONSTANT(Ast.CInt(Ast.Dec, Num.num_of_string s, suffix))}
 
 
 
