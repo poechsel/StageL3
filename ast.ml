@@ -8,12 +8,14 @@ type number_base =
 
 type exponent = 
     | Exponent of char * int * int
-type number = 
+type constant = 
+    | Enum of string
+    | Char of string
     | Int of  number_base * Num.num * string
     | Float of  number_base * Num.num * Num.num * exponent option * string (* base du flottant, entiere, decimal, exposant, flags*)
 type ast = 
     | Identifier of string
-    | Const of number
+    | Const of constant
 
 
 let print_cst x = match x with

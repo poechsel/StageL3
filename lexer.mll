@@ -32,6 +32,9 @@ let identifier_nondigit = (nondigit | universal_character_name)
 
 
 (*** constants ***)
+let integer_suffix = 
+    ("u" | "U")(("l"|"L")? | ("LL"|"ll"))
+    |  (("l"|"L") | ("LL"|"ll"))("u" | "U")?
 
 let decimal_constant = nonzero_digit digit*
 let octal_constant = '0' octal_digit* 
@@ -87,14 +90,17 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
 
 
 
+  | character_constant as s
+    { CONSTANT(Ast.Char(s))}
 
+    (** lexing floats**)
   | (digit_sequence? as a) ((("e" | "E") as exp_word) (sign as sgn) (digit_sequence as dgts)) (['f' 'F' 'l' 'L']? as suffix)
   { 
         let num_a = Num.num_of_string (if a = "" then "0" else a) in
         let num_b = Num.num_of_string "0" in
         let exp = Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), int_of_string dgts)) 
         in 
-        DEC_CST_FRAC(num_a, num_b, exp, suffix)
+        CONSTANT(Ast.Float(Ast.Dec, num_a, num_b, exp, suffix))
     }
 
   | (digit_sequence? as a) ('.' (digit_sequence? as b))  ((("e" | "E") as exp_word) (sign as sgn) (digit_sequence as dgts))? (['f' 'F' 'l' 'L']? as suffix)
@@ -108,7 +114,7 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
                     Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), int_of_string dgts)) 
             | _ -> None
         in 
-        DEC_CST_FRAC(num_a, num_b, exp, suffix)
+        CONSTANT(Ast.Float(Ast.Dec, num_a, num_b, exp, suffix))
   }
 
     | ("0x" | "0X") (hexadecimal_digit_sequence? as a) ('.' (hexadecimal_digit_sequence? as b))?  ((("p" | "P") as exp_word) (sign as sgn) (hexadecimal_digit_sequence as dgts)) (['f' 'F' 'l' 'L']? as suffix)
@@ -119,16 +125,18 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
             | Some b -> b) in
         let exp = Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), int_of_string dgts)) 
         in 
-        HEX_CST_FRAC(num_a, num_b, exp, suffix)
+        CONSTANT(Ast.Float(Ast.Hex, num_a, num_b, exp, suffix))
   }
 
 
-    | octal_constant as s
-    {OCT_CST(String.sub s 1 (String.length s - 1))}
-    | decimal_constant as s
-    {DEC_CST(s)}
-    | hexadecimal_constant as s
-    {HEX_CST(s)}
+    (** int **)
+    | (octal_constant as s) (integer_suffix? as suffix)
+    { let t = "0o" ^ String.sub s 1 (String.length s - 1)
+     in CONSTANT(Ast.Int(Ast.Oct, Num.num_of_string t, suffix))}
+    | (decimal_constant as s) (integer_suffix? as suffix)
+    {CONSTANT(Ast.Int(Ast.Dec, Num.num_of_string s, suffix))}
+    | (hexadecimal_constant as s) (integer_suffix? as suffix)
+    {CONSTANT(Ast.Int(Ast.Dec, Num.num_of_string s, suffix))}
 
 
 
