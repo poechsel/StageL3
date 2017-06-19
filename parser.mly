@@ -226,12 +226,11 @@ constant_expression:
 
 
 
-/*
 declaration:
     | declaration_specifiers ENDLINE
-        { Declaration($1, []) }
+        { Declaration(["", $1, None, None]) }
     | declaration_specifiers init_declarator_list ENDLINE
-        { Declaration($1, List.rev $2) }
+        { Declaration(List.map (fun (a, b, v) -> a, List.rev $1, Some b, v) $2) }
 
 declaration_specifiers:
     | storage_class_specifiers declaration_specifiers
@@ -255,15 +254,15 @@ init_declarator_list:
     | init_declarator
         { [$1] }
     | init_declarator_list "," init_declarator
-        { $2::$1 }
+        { $3::$1 }
 
 init_declarator:
     | declarator
-        { DDeclaration ($1, None) }
+        { let a, b = $1 in a, b, None }
     | declarator "=" initializer
-        { DDeclaration( $1, Some $3)}
+        { let a, b = $1 in a, b, $3 }
 
-storage_class_specifier:
+storage_class_specifiers:
     | TYPEDEF   { Typedef  }
     | EXTERN    { Extern   }
     | STATIC    { Static   }
@@ -326,14 +325,17 @@ specifier_qualifier_list:
 
 struct_declarator_list:
     | struct_declarator
-        { $1 }
+        { $1 :: [] }
     | struct_declarator_list struct_declarator
         { $2 :: $1 }
 
 struct_declarator:
     | declarator
+        { Some $1, None }
     | ":" constant_expression
+        { None, Some $2 }
     | declarator ":" constant_expression
+        { Some $1, Some $3 }
 
 
 enum_specifier:
@@ -352,7 +354,7 @@ enumerator_list:
     | enumerator
         { [$1] }
     | enumerator_list "," enumerator
-        { $2 :: $1 }
+        { $3 :: $1 }
 
 enumerator:
     | IDENT
@@ -372,36 +374,37 @@ declarator:
     | direct_declarator
         { $1 }
     | pointer direct_declarator
-        { DPointer($2) }
+        { let a, b = $2 in a, DPointer($2) }
 
 direct_declarator:
     | IDENT
-        { DIdentifier $1}
+        { $1, None }
     | "(" declarator ")"
+        { $2 }
     | direct_declarator "[" type_qualifier_list assignment_expression"]"
-        { DArray($1, $3, DArraySize($4)) }
+        { let a, b = $1 in a, DArray(b, $3, DArraySize($4)) }
     | direct_declarator "[" assignment_expression "]"
-        { DArray($1, [], DArraySize($4)) }
+        { let a, b = $1 in a, DArray(b, [], DArraySize($3)) }
     | direct_declarator "[" type_qualifier_list "]"
-        { DArray($1, $3, DArrayNone) }
+        { let a, b = $1 in a, DArray(b, $3, DArrayNone) }
     | direct_declarator "[" "]"
-        { DArray($1, [], DArrayNone) }
+        { let a, b = $1 in a, DArray(b, [], DArrayNone) }
     | direct_declarator "[" STATIC type_qualifier_list assignment_expression "]"
-        { DArray($1, Static::$4, DArraySize($5)) }
+        { let a, b = $1 in a, DArray(b, Static::$4, DArraySize($5)) }
     | direct_declarator "[" STATIC assignment_expression "]"
-        { DArray($1, Static::[], DArraySize($5)) }
-    | direct_declarator "[" type_qualifier_list STATIC assignment_expression "]"
-        { DArray($1, $4 @ [Static], DArraySize($5)) }
+        { let a, b = $1 in a, DArray(b, Static::[], DArraySize($4)) }
+    | direct_declarator "[" type_qualifier_list STATIC assignment_expression "]"
+        { let a, b = $1 in a, DArray(b, $3 @ [Static], DArraySize($5)) }
     | direct_declarator "[" type_qualifier_list "*" "]"
-        { DArray($1, $3, DArrayVLA) }
+        { let a, b = $1 in a, DArray(b, $3, DArrayVLA) }
     | direct_declarator "[" "*" "]"
-        { DArray($1, [], DArrayVLA) }
+        { let a, b = $1 in a, DArray(b, [], DArrayVLA) }
     | direct_declarator "(" parameter_type_list ")"
-        { DFunction($1, $3) }
+        { let a, b = $1 in a, DFunction(b, $3) }
     | direct_declarator "(" identifier_list ")"
-        { DFunction($1, $3) }
+        { let a, b = $1 in a, DFunction(b, $3) }
     | direct_declarator "(" ")"
-        { DFunction($1, []) }
+        { let a, b = $1 in a, DFunction(b, []) }
 
 pointer:
     | "*" type_qualifier_list 
@@ -425,8 +428,8 @@ parameters_list:
     | parameters_declaration
         { $1 }
     | parameters_list "," parameters_declaration
-        { $2 :: $1 }
-
+        { $3 :: $1 }
+/*
 parameters_declaration:
     | declaration_specifiers declarator
     | declaration_specifiers abstract_declarator
@@ -441,13 +444,51 @@ identifier_list:
 type_name:
     | specifier_qualifier_list abstract_declarator
         { DDeclaration ($)}
+
+declarator:
+        | "b" {None}
+declaration_specifiers:
+        | "a" {None}
 */
 
 
 
+initializer:
+    | assignment_expression
+        { [None, $1] }
+    | "{" initializer_list "}"
+        { (List.rev $2) }
+    | "{" initializer_list "," "}"
+        { (List.rev $2) }
+
+typedef_name:
+    | identifier
+        { $1 }
+
+initalizer_list:
+    | designation initializer
+        { [Some $1, $2] }
+    | initializer
+        { [None, $1] }
+    | initializer_list "," designation initializer
+        { [Some $3, $4] :: $1 }
+    | initializer_list "," initializer
+        { [None,  $3] :: $1 }
+
+designation:
+    | designator_list "="
+        { $1 }
+
+designator:
+    | "[" constant_expression "]"
+        { DesStruct $2 }
+    | "." IDENT
+        { DesMember $2 }
 
 
 
+
+/*** STATEMENTS ***/
 
 statement:
     | labeled_statement
@@ -536,7 +577,7 @@ jump_statement:
 
 translation_unit:
     | external_declaration
-        { $1 }
+        { $1::[] }
     | translation_unit external_declaration
         { $2 :: $1 }
 
@@ -547,14 +588,14 @@ external_declaration:
         { $1 }
 
 function_definition:
-    | declaration_specifiers declarator declaration_list compournd_statement
+    | declaration_specifiers declarator declaration_list compound_statement
         { Break }
     | declaration_specifiers declarator 
         { Break }
 
 declaration_list:
     | declaration
-        { $1 }
+        { $1::[] }
     | declaration_list declaration
         { $2 :: $1 }
 

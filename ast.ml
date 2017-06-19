@@ -124,6 +124,12 @@ and cast_argument =
   | InitializerList of ast list
   | SeldomArg      of ast
 
+and type_content = int
+
+and designator = 
+  | DesStruct of ast
+  | DesMember of string
+
 and ast = 
     | Identifier of string
     | Constant of constant
@@ -136,7 +142,7 @@ and ast =
     | Assign of BinOp.op * ast * ast
     | Type of type_name
     | Expression of ast list
-    | Declaration of  declaration_specifiers list * ast list
+    | Declaration of  (string * declaration_specifiers list * ast option * (designator option * ast) list) list (* name, specifiers, things like pointer/array, value *)
 
     | IfThenElse of conditionnal_type * ast * ast list * ast list
     | Return of ast option
