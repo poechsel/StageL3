@@ -81,6 +81,7 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
 
   | "sizeof" {SIZEOF}
 
+  | ";"     { ENDLINE }
 
 
   | identifier_nondigit (identifier_nondigit | digit)* as s 

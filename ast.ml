@@ -64,7 +64,63 @@ type conditionnal_type =
   | Ternary
   | If
 
-type cast_argument = 
+
+type while_type =
+  | DoWhile
+  | NoWhile
+
+
+type struct_declaration = 
+  string * (declaration_specifiers list * ast list) list
+
+
+
+and enumerator = 
+  string * ast option
+
+and array_size_d =
+  | DArraySize of ast
+  | DArrayNone
+  | DArrayVLA
+and declaration_specifiers =
+  | Typedef
+  | Extern
+  | Static
+  | Auto
+  | Register
+
+  | Void
+  | Char
+  | Short
+  | Int
+  | Long
+  | Float
+  | Double
+  | Signed
+  | Unsigned
+  | Bool
+  | Complex
+
+  | Struct of struct_declaration
+  | Union of struct_declaration
+
+  | Enum of string * enumerator list
+
+  | Const
+  | Volatile
+  | Restrict
+
+  | Inline
+
+and declaration = 
+  | DPointerChain of declaration_specifiers * declaration
+  | DPointer of declaration
+  | DIdentifier of string
+  | DArray  of declaration * declaration_specifiers list * array_size_d
+
+  | DDeclaration of declaration * ast option
+
+and cast_argument = 
   | InitializerList of ast list
   | SeldomArg      of ast
 
@@ -77,10 +133,23 @@ and ast =
     | UnaryOp of UnOp.op * ast
     | Cast  of type_name * cast_argument 
     | BinaryOp of BinOp.op * ast * ast
-    | IfThenElse of conditionnal_type * ast * ast * ast
     | Assign of BinOp.op * ast * ast
     | Type of type_name
     | Expression of ast list
+    | Declaration of  declaration_specifiers list * ast list
+
+    | IfThenElse of conditionnal_type * ast * ast list * ast list
+    | Return of ast option
+    | Break
+    | Continue
+    | Goto of string
+    | For of ast option * ast option * ast option * ast list
+    | Bloc of ast list
+    | Switch of ast * ast list
+    | While of while_type * ast * ast list
+    | Label of string * ast
+    | Case of ast * ast
+    | Default of ast
 
 
 let print_cst x = match x with
