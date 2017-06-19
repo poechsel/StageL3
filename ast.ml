@@ -152,6 +152,15 @@ and ast =
     | Default of ast
 
 
+type preprocess =
+    | PrInclude of string
+    | PrDefine of string
+
+type cod =
+    | Ast of ast
+    | Preprocess of preprocess
+
+
 let print_cst x = match x with
     | CInt(Hex, num, s) ->
         Printf.printf "(hex, %s, %s)" (Num.string_of_num num) s

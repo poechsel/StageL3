@@ -529,3 +529,34 @@ jump_statement:
         { Return (None) }
     | RETURN expression ";"
         { Return (Some $2)}
+
+
+
+/*** external definitions ***/
+
+translation_unit:
+    | external_declaration
+        { $1 }
+    | translation_unit external_declaration
+        { $2 :: $1 }
+
+external_declaration:
+    | function_definition
+        { $1 }
+    | declaration
+        { $1 }
+
+function_definition:
+    | declaration_specifiers declarator declaration_list compournd_statement
+        { Break }
+    | declaration_specifiers declarator 
+        { Break }
+
+declaration_list:
+    | declaration
+        { $1 }
+    | declaration_list declaration
+        { $2 :: $1 }
+
+
+/*** preprocessing ***/
