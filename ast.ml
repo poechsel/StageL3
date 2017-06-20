@@ -70,9 +70,11 @@ type while_type =
   | NoWhile
 
 
-type struct_declaration = 
+type union_declaration = 
   string * (declaration_specifiers list * ast list) list
 
+and struct_declaration = 
+  string * (declaration_specifiers list * ((string * declaration) option * ast option) list) list
 
 
 and enumerator = 
@@ -112,13 +114,16 @@ and declaration_specifiers =
 
   | Inline
 
+  | Pointer 
+
 and declaration = 
-  | DPointerChain of declaration_specifiers * declaration
+  | DPointerChain of declaration_specifiers list * declaration
   | DPointer of declaration
   | DIdentifier of string
   | DArray  of declaration * declaration_specifiers list * array_size_d
 
   | DDeclaration of declaration * ast option
+  | DNone
 
 and cast_argument = 
   | InitializerList of ast list
@@ -142,7 +147,7 @@ and ast =
     | Assign of BinOp.op * ast * ast
     | Type of type_name
     | Expression of ast list
-    | Declaration of  (string * declaration_specifiers list * ast option * (designator option * ast) list) list (* name, specifiers, things like pointer/array, value *)
+    | Declaration of  (string * declaration_specifiers list * declaration option * (designator option * ast) list) list (* name, specifiers, things like pointer/array, value *)
 
     | IfThenElse of conditionnal_type * ast * ast list * ast list
     | Return of ast option
