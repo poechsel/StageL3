@@ -186,7 +186,7 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
   { 
         let num_a = Num.num_of_string (if a = "" then "0" else a) in
         let num_b = Num.num_of_string "0" in
-        let exp = Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), int_of_string dgts)) 
+        let exp = Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), Num.num_of_string dgts)) 
         in 
         CONSTANT(Ast.CFloat(Ast.Dec, num_a, num_b, exp, suffix))
     }
@@ -199,7 +199,7 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
             | b  -> b) in
         let exp = match (exp_word, sgn, dgts) with
             | Some exp_word, Some sgn, Some dgts ->
-                    Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), int_of_string dgts)) 
+                    Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), Num.num_of_string dgts)) 
             | _ -> None
         in 
         CONSTANT(Ast.CFloat(Ast.Dec, num_a, num_b, exp, suffix))
@@ -211,7 +211,7 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
         let num_b = Num.num_of_string @@ "0x" ^ (match b with
             | None | Some "" -> "0"
             | Some b -> b) in
-        let exp = Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), int_of_string dgts)) 
+        let exp = Some (Ast.Exponent(exp_word, (if sgn = '+' then 1 else -1), Num.num_of_string dgts)) 
         in 
         CONSTANT(Ast.CFloat(Ast.Hex, num_a, num_b, exp, suffix))
   }

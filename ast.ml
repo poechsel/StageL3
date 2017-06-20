@@ -1,59 +1,94 @@
 
 
 type number_base = 
-    | Hex
-    | Dec
-    | Oct
+  | Hex
+  | Dec
+  | Oct
 
 
 type exponent = 
-    | Exponent of char * int * int
+  | Exponent of char * int * Num.num
 type constant = 
-    | CChar of string
-    | CInt of  number_base * Num.num * string
-    | CFloat of  number_base * Num.num * Num.num * exponent option * string (* base du flottant, entiere, decimal, exposant, flags*)
+  | CChar of string
+  | CInt of  number_base * Num.num * string
+  | CFloat of  number_base * Num.num * Num.num * exponent option * string (* base du flottant, entiere, decimal, exposant, flags*)
 
 type access_method = 
-    | Array
-    | Member
-    | Pointer
+  | Array
+  | Member
+  | Pointer
 
 module UnOp = struct 
-type op =
-  | PostIncr 
-  | PostDecr
-  | SizeOf
-  | PreIncr
-  | PreDecr
-  | Ref     (* & *)
-  | DeRef   (* * *)
-  | Not     (* ! *)
-  | Neg     (* ~ *)
-  | Add
-  | Sub
+  type op =
+    | PostIncr 
+    | PostDecr
+    | SizeOf
+    | PreIncr
+    | PreDecr
+    | Ref     (* & *)
+    | DeRef   (* * *)
+    | Not     (* ! *)
+    | Neg     (* ~ *)
+    | Add
+    | Sub
+  let pretty_print str o = Printf.sprintf (
+      match o with
+      | PostIncr -> "%s ++"
+      | PostDecr -> "%s --"
+      | SizeOf  -> "sizeof( %s )" 
+      | PreIncr -> "++ %s" 
+      | PreDecr -> "-- %s"
+      | Ref     -> "&%s"
+      | DeRef   -> "*%s"
+      | Not     -> "!%s"
+      | Neg     -> "~%s"
+      | Add     -> "+%s"
+      | Sub     -> "-%s"
+    ) str
 end 
 
 module BinOp = struct
-type op = 
-  | Mul
-  | Div
-  | Mod
-  | Add
-  | Sub
-  | LShift
-  | RShift
-  | Slt
-  | Sgt
-  | Leq
-  | Geq
-  | Eq
-  | Neq
-  | BinAnd
-  | BinOr
-  | BinXor
-  | Or
-  | And
-  | Empty
+  type op = 
+    | Mul
+    | Div
+    | Mod
+    | Add
+    | Sub
+    | LShift
+    | RShift
+    | Slt
+    | Sgt
+    | Leq
+    | Geq
+    | Eq
+    | Neq
+    | BinAnd
+    | BinOr
+    | BinXor
+    | Or
+    | And
+    | Empty
+
+  let pretty_print o = match o with
+    | Mul -> "*"
+    | Div -> "/"
+    | Mod -> "%"
+    | Add -> "+"
+    | Sub -> "-"
+    | LShift -> "<<"
+    | RShift -> ">>"
+    | Slt     -> "<"
+    | Sgt     -> ">"
+    | Leq     -> "<="
+    | Geq     -> ">="
+    | Eq      -> "=="
+    | Neq     -> "!="
+    | BinAnd  -> "&"
+    | BinOr   -> "|"
+    | BinXor  -> "^"
+    | Or      -> "||"
+    | And     -> "&&"
+    | Empty   -> ""
 end
 
 
@@ -62,7 +97,7 @@ end
    type, (name, list pointers & other sepcifiers, what (array, function qualifiers), bit size)
    For a normal declaration:
    (type, name, other sepcifiers, what, initialization)
-***)
+ ***)
 
 type conditionnal_type =
   | Ternary
@@ -124,7 +159,7 @@ and type_name =
   declaration_specifiers list * declarator_type
 
 and declarator_type =
-    string * declaration_specifiers list * declarator
+  string * declaration_specifiers list * declarator
 
 and declarator_parameter =
   | DeIdentifier of string
@@ -142,48 +177,48 @@ and initializer_what =
   | InMember of string
 
 and ast = 
-    | Identifier of string
-    | InitializerList of ast list
-    | Constant of constant
-    | String of string
-    | Call of ast * ast list
-    | Access of access_method * ast * ast
-    | UnaryOp of UnOp.op * ast
-    | Cast  of type_name * ast 
-    | BinaryOp of BinOp.op * ast * ast
-    | Assign of BinOp.op * ast * ast
-    | Type of type_name
-    | Expression of ast list
-    | Declaration of declaration_specifiers list * (string * declaration_specifiers list * declarator * ast option) list 
+  | Identifier of string
+  | InitializerList of ast list
+  | Constant of constant
+  | String of string
+  | Call of ast * ast list
+  | Access of access_method * ast * ast
+  | UnaryOp of UnOp.op * ast
+  | Cast  of type_name * ast 
+  | BinaryOp of BinOp.op * ast * ast
+  | Assign of BinOp.op * ast * ast
+  | Type of type_name
+  | Expression of ast list
+  | Declaration of declaration_specifiers list * (string * declaration_specifiers list * declarator * ast option) list 
 
-    | IfThenElse of conditionnal_type * ast * ast list * ast list
-    | Return of ast option
-    | Break
-    | Continue
-    | Goto of string
-    | For of ast option * ast option * ast option * ast list
-    | Bloc of ast list
-    | Switch of ast * ast list
-    | While of while_type * ast * ast list
-    | Label of string * ast
-    | Case of ast * ast
-    | Default of ast
+  | IfThenElse of conditionnal_type * ast * ast list * ast list
+  | Return of ast option
+  | Break
+  | Continue
+  | Goto of string
+  | For of ast option * ast option * ast option * ast list
+  | Bloc of ast list
+  | Switch of ast * ast list
+  | While of while_type * ast * ast list
+  | Label of string * ast
+  | Case of ast * ast
+  | Default of ast
 
 
 type preprocess =
-    | PrInclude of string
-    | PrDefine of string
+  | PrInclude of string
+  | PrDefine of string
 
 type cod =
-    | Ast of ast
-    | Preprocess of preprocess
+  | Ast of ast
+  | Preprocess of preprocess
 
 
 let print_cst x = match x with
-    | CInt(Hex, num, s) ->
-        Printf.printf "(hex, %s, %s)" (Num.string_of_num num) s
-    | CInt(Oct, num, s) ->
-        Printf.printf "(oct, %s, %s)" (Num.string_of_num num) s
-    | CInt(Dec, num, s) ->
-        Printf.printf "(dec, %s, %s)" (Num.string_of_num num) s
-    | _ -> ()
+  | CInt(Hex, num, s) ->
+    Printf.printf "(hex, %s, %s)" (Num.string_of_num num) s
+  | CInt(Oct, num, s) ->
+    Printf.printf "(oct, %s, %s)" (Num.string_of_num num) s
+  | CInt(Dec, num, s) ->
+    Printf.printf "(dec, %s, %s)" (Num.string_of_num num) s
+  | _ -> ()

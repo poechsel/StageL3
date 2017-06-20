@@ -591,7 +591,7 @@ expression_statement:
     | expression ENDLINE
         { $1 }
     | ENDLINE 
-        { Identifier("0pass")}
+        { Identifier(";")}
 
 
 selection_statement:

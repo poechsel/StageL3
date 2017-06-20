@@ -1,6 +1,8 @@
+open Prettyprint
+
 let compile e =
   begin
-()
+pretty_print e
   end
 
 (* stdin désigne l'entrée standard (le clavier) *)
