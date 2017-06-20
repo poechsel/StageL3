@@ -57,8 +57,12 @@ type op =
 end
 
 
-type type_name = Int
-
+(***
+   For a struct, each entry is of the form:
+   type, (name, list pointers & other sepcifiers, what (array, function qualifiers), bit size)
+   For a normal declaration:
+   (type, name, other sepcifiers, what, initialization)
+***)
 
 type conditionnal_type =
   | Ternary
@@ -71,19 +75,14 @@ type while_type =
 
 
 type union_declaration = 
-  string * (declaration_specifiers list * ast list) list
+  string * (declaration_specifiers list ) list
 
 and struct_declaration = 
-  string * (declaration_specifiers list * ((string * declaration) option * ast option) list) list
+  declaration_specifiers list * string * declaration_specifiers list * declarator * ast option
 
 
 and enumerator = 
   string * ast option
-
-and array_size_d =
-  | DArraySize of ast
-  | DArrayNone
-  | DArrayVLA
 and declaration_specifiers =
   | Typedef
   | Extern
@@ -103,8 +102,8 @@ and declaration_specifiers =
   | Bool
   | Complex
 
-  | Struct of struct_declaration
-  | Union of struct_declaration
+  | Struct of string * struct_declaration list
+  | Union of string * struct_declaration list
 
   | Enum of string * enumerator list
 
@@ -114,40 +113,48 @@ and declaration_specifiers =
 
   | Inline
 
-  | Pointer 
+  | Pointer
 
-and declaration = 
-  | DPointerChain of declaration_specifiers list * declaration
-  | DPointer of declaration
-  | DIdentifier of string
-  | DArray  of declaration * declaration_specifiers list * array_size_d
+and declarator_array_size =
+  | DeArraySize of ast
+  | DeArrayVla 
+  | DeArrayUndef
 
-  | DDeclaration of declaration * ast option
-  | DNone
+and type_name = 
+  declaration_specifiers list * declarator_type
 
-and cast_argument = 
-  | InitializerList of ast list
-  | SeldomArg      of ast
+and declarator_type =
+    string * declaration_specifiers list * declarator
 
-and type_content = int
+and declarator_parameter =
+  | DeIdentifier of string
+  | DeOthers
+  | DeParam of declaration_specifiers list * declarator_type option
 
-and designator = 
-  | DesStruct of ast
-  | DesMember of string
+and declarator = 
+  | DeBasic
+  | DeRecursive of declaration_specifiers list * declarator
+  | DeArray of declarator * declaration_specifiers list * declarator_array_size
+  | DeFunction of declarator * declarator_parameter list
+
+and initializer_what =
+  | InArray of ast
+  | InMember of string
 
 and ast = 
     | Identifier of string
+    | InitializerList of ast list
     | Constant of constant
     | String of string
     | Call of ast * ast list
     | Access of access_method * ast * ast
     | UnaryOp of UnOp.op * ast
-    | Cast  of type_name * cast_argument 
+    | Cast  of type_name * ast 
     | BinaryOp of BinOp.op * ast * ast
     | Assign of BinOp.op * ast * ast
     | Type of type_name
     | Expression of ast list
-    | Declaration of  (string * declaration_specifiers list * declaration option * (designator option * ast) list) list (* name, specifiers, things like pointer/array, value *)
+    | Declaration of declaration_specifiers list * (string * declaration_specifiers list * declarator * ast option) list 
 
     | IfThenElse of conditionnal_type * ast * ast list * ast list
     | Return of ast option

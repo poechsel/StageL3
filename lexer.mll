@@ -77,11 +77,96 @@ let ponctuators = "[" | "(" | ")" | "]" | "{" | "}" | "." | "->" | "++" | "--" |
 rule token = parse    (* la "fonction" aussi s'appelle token .. *)
   | [' ' '\t']     { token lexbuf }
   | '\n' {incr_linenum lexbuf; token lexbuf}
+  | "//"          { singleline_comment lexbuf; token lexbuf }
+  | "/*"          { multiline_comment lexbuf; token lexbuf }
+
+  | "!="    {NEQ}
+  | "=="    {EQ}
+  | "."     {DOT}
+  | "..."   {THREEDOT}
+  | "["     {LBRACKET}
+  | "]"     {RBRACKET}
+  | "("     {LPAREN}
+  | ")"     {RPAREN}
+  | "{"     {LCURLY}
+  | "}"     {RCURLY}
+  | "*="    {MULASSIGN}
+  | "/="    {DIVASSIGN}
+  | "%="    {MODASSIGN}
+  | "+="    {ADDASSIGN}
+  | "-="    {SUBASSIGN}
+  | "<<="    {LSASSIGN}
+  | ">>="    {RSASSIGN}
+  | "&="    {ANDASSIGN}
+  | "^="    {XORASSIGN}
+  | "|="    {ORASSIGN}
+  | "="    {ASSIGN}
+
+  | "<"     { SLT }
+  | ">"     { SGT }
+  | "<="    { LEQ }
+  | "=>"    { GEQ }
+
+  | "++"    { INCR }
+  | "--"    { DECR }
+  | "->"    { ARROW }
+  | "*"   { MUL }
+  | "&&"    { AND }
+  | "||"    { OR }
+  | "&"     {ANDBIN}
+  | "|"     {ORBIN}
+  | "^"     {XORBIN}
+  | "/"     {DIV}
+  | "%"     {MOD}
+  | "?"     {QUESTION}
+  | ","     {COMA}
+  | "~"     {NEG}
+  | "!"     {NOT}
+  | "+"     {ADD}
+  | "-"     {SUB}
+  | ":"     {COLON}
+  | ";"     {ENDLINE}
+
 
 
   | "sizeof" {SIZEOF}
+  | "typedef"   {TYPEDEF}
+  | "extern"    {EXTERN}
+  | "static"    {STATIC}
+  | "auto"      {AUTO}
+  | "register"  {REGISTER}
+  | "void"      {VOID}
+  | "char"      {CHAR}
+  | "int"       {INT}
+  | "short"     {SHORT}
+  | "long"      {LONG}
+  | "float"     {FLOAT}
+  | "double"    {DOUBLE}
+  | "signed"    {SIGNED}
+  | "unsigned"  {UNSIGNED}
+  | "__Bool"      {BOOL}
+  | "__Complex"     {COMPLEX}
+  | "struct"        {STRUCT}
+  | "union"     {UNION}
+  | "enum"      {ENUM}
+  | "const"     {CONST}
+  | "volatile"  {VOLATILE}
+  | "restrict"  {RESTRICT}
+  | "inline"    {INLINE}
 
-  | ";"     { ENDLINE }
+  | "case"      {CASE}
+  | "switch"    {SWITCH}
+  | "goto"      {GOTO}
+  | "for"       {FOR}
+  | "while"     {WHILE}
+  | "if"        {IF}
+  | "else"      {ELSE}
+  | "break"     {BREAK}
+  | "continue"  {CONTINUE}
+  | "return"    {RETURN}
+  | "default"   {DEFAULT}
+  | "do"        {DO}
+
 
 
   | identifier_nondigit (identifier_nondigit | digit)* as s 
@@ -141,6 +226,17 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
     | (hexadecimal_constant as s) (integer_suffix? as suffix)
     {CONSTANT(Ast.CInt(Ast.Dec, Num.num_of_string s, suffix))}
 
+and multiline_comment = parse
+  | "*/"   { () }
+  | eof    { failwith "unterminated comment" }
+  | '\n'   { incr_linenum lexbuf; multiline_comment lexbuf }
+  | _      { multiline_comment lexbuf }
+
+(* Single-line comment terminated by a newline *)
+and singleline_comment = parse
+  | '\n'   { incr_linenum lexbuf }
+  | eof    { () }
+  | _ { singleline_comment lexbuf }
 
 
 
