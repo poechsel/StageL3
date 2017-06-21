@@ -5,9 +5,6 @@ open Num
 
 
 
-let extract_bloc b = match b with
-    | Bloc b -> b
-    | b -> [b]
 
 %}
 /* description des lexèmes, ceux-ci sont décrits (par vous) dans lexer.mll */
@@ -32,7 +29,7 @@ let extract_bloc b = match b with
 
 main:                     
     | translation_unit ENDLINE
-        { $1 }
+        { List.rev $1 }
 
 identifier:
     | IDENT
@@ -183,7 +180,7 @@ conditional_expression:
     | logical_or_expression
         { $1 }
     | logical_or_expression QUESTION expression COLON conditional_expression
-        { IfThenElse(Ternary, $1, [$3], [$5]) }
+        { IfThenElse(Ternary, $1, $3, Some $5) }
 
 assignment_operator:
     | ASSIGN { BinOp.Empty }
@@ -596,11 +593,11 @@ expression_statement:
 
 selection_statement:
     | IF LPAREN expression RPAREN statement %prec below_ELSE
-        { IfThenElse(If, $3, extract_bloc $5, []) }
+        { IfThenElse(If, $3, $5, None) }
     | IF LPAREN expression RPAREN statement ELSE statement 
-        { IfThenElse(If, $3, extract_bloc $5, extract_bloc $7) }
+        { IfThenElse(If, $3, $5, Some $7) }
     | SWITCH LPAREN expression RPAREN statement
-        { Switch($3, extract_bloc $5) }
+        { Switch($3, $5) }
 
 opt_expression:
     | { None }
@@ -608,13 +605,13 @@ opt_expression:
 
 iteration_statement:
     | WHILE LPAREN expression RPAREN statement
-        { While(NoWhile, $3, extract_bloc $5)}
+        { While(NoWhile, $3, $5)}
     | DO statement WHILE LPAREN expression RPAREN ENDLINE
-        { While(DoWhile, $5, extract_bloc $2)}
+        { While(DoWhile, $5, $2)}
     | FOR LPAREN opt_expression ENDLINE opt_expression ENDLINE opt_expression RPAREN statement
-        { For ($3, $5, $7, extract_bloc $9)}
+        { For ($3, $5, $7, $9)}
     | FOR LPAREN declaration opt_expression ENDLINE opt_expression RPAREN statement
-        { For (Some $3, $4, $6, extract_bloc $8)}
+        { For (Some $3, $4, $6, $8)}
 
 jump_statement:
     | GOTO IDENT ENDLINE
@@ -646,9 +643,9 @@ external_declaration:
 
 function_definition:
     | declaration_specifiers declarator  compound_statement
-        { Break }
+        { FunctionDeclaration($1, $2, [], $3) }
     | declaration_specifiers declarator declaration_list compound_statement
-        { Break }
+        { FunctionDeclaration($1, $2, List.rev $3, $4) }
 
 declaration_list:
     | declaration

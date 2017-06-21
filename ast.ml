@@ -190,16 +190,17 @@ and ast =
   | Type of type_name
   | Expression of ast list
   | Declaration of declaration_specifiers list * (string * declaration_specifiers list * declarator * ast option) list 
+    | FunctionDeclaration of declaration_specifiers list * declarator_type * ast list * ast
 
-  | IfThenElse of conditionnal_type * ast * ast list * ast list
+  | IfThenElse of conditionnal_type * ast * ast * ast option
   | Return of ast option
   | Break
   | Continue
   | Goto of string
-  | For of ast option * ast option * ast option * ast list
+  | For of ast option * ast option * ast option * ast 
   | Bloc of ast list
-  | Switch of ast * ast list
-  | While of while_type * ast * ast list
+  | Switch of ast * ast 
+  | While of while_type * ast * ast 
   | Label of string * ast
   | Case of ast * ast
   | Default of ast
