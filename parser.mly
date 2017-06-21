@@ -28,6 +28,8 @@ open Num
 %%
 
 main:                     
+    | statement ENDLINE
+        { [ $1 ]}
     | translation_unit ENDLINE
         { List.rev $1 }
 

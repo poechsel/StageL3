@@ -176,6 +176,8 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
 
 
 
+    | "0"
+        { print_endline "oki"; CONSTANT(Ast.CInt(Ast.Dec, Num.num_of_string "0", ""))}
 
 
   | character_constant as s
@@ -222,7 +224,7 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
     { let t = "0o" ^ String.sub s 1 (String.length s - 1)
      in CONSTANT(Ast.CInt(Ast.Oct, Num.num_of_string t, suffix))}
     | (decimal_constant as s) (integer_suffix? as suffix)
-    {CONSTANT(Ast.CInt(Ast.Dec, Num.num_of_string s, suffix))}
+    {print_endline s; CONSTANT(Ast.CInt(Ast.Dec, Num.num_of_string s, suffix))}
     | (hexadecimal_constant as s) (integer_suffix? as suffix)
     {CONSTANT(Ast.CInt(Ast.Dec, Num.num_of_string s, suffix))}
 

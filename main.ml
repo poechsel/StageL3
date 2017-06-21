@@ -1,8 +1,11 @@
 open Prettyprint
+open Variables
 
 let compile e =
   begin
-pretty_print e
+    pretty_print e;
+    let r = get_all_variables e
+    in Hashtbl.iter (fun name (level, p) -> Printf.printf "%s: %d, %s\n" name level (print_rw_flag p)) r
   end
 
 (* stdin désigne l'entrée standard (le clavier) *)
