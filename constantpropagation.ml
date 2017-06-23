@@ -35,7 +35,7 @@ module Env = struct
   let add_binding env name expr = 
     let version = Env.find name env.versions in
     {env with bindings = Env.add (key_to_string name version) expr env.bindings}
-        
+
 end
 
 let rec is_expr_propagatable expr = 
@@ -49,6 +49,8 @@ let rec is_expr_propagatable expr =
       | _ ->
         is_expr_propagatable a
     end
+  | Access(_, what, where) ->
+    is_expr_propagatable what && is_expr_propagatable where
   | _ -> false
 
 let get_all_dependencies expr =
@@ -62,83 +64,100 @@ let get_all_dependencies expr =
 
 let rec expand_expr expr env =
   let rec expand expr = 
-  let _ = print_endline @@ pretty_print_ast expr in
-  match expr with
-  | Identifier name -> 
-    Env.get_last env name
-  | UnaryOp(op, a) ->
-    UnaryOp(op, expand expr)
-  | BinaryOp(op, a, b) ->
-    BinaryOp(op, expand a, expand b)
-  | Access(t, what, where) ->
-    Access(t, what, expand where)
-  | _ -> expr
+    let _ = print_endline @@ pretty_print_ast expr in
+    match expr with
+    | Identifier name -> 
+      Env.get_last env name
+    | UnaryOp(op, a) ->
+      UnaryOp(op, expand expr)
+    | BinaryOp(op, a, b) ->
+      BinaryOp(op, expand a, expand b)
+    | Access(t, what, where) ->
+      Access(t, what, expand where)
+    | _ -> expr
 
-in 
+  in 
   if is_expr_propagatable expr then expand expr 
   else expr
 
 let transform expr env name time = 
-      if is_expr_propagatable expr then 
-        let expr = expand_expr expr env in
-        let env = Env.update_version env name !time in
-        expr, Env.add_binding env name expr 
-      else 
-        expr, Env.update_version env name !time 
+  if is_expr_propagatable expr then 
+    let expr = expand_expr expr env in
+    let env = Env.update_version env name !time in
+    expr, Env.add_binding env name expr 
+  else 
+    expr, Env.update_version env name !time 
 
 let constant_propagation expr = 
   let env = Env.empty in
   let time = ref 0 in
-  let rec propagate expr env =
+
+  let rec update_list l env = match l with
+    | [] -> [], env
+    | x::tl ->
+      let x', env = propagate x env
+      in let l, env = update_list tl env in  x'::l, env
+  and propagate expr env =
     let _ = incr time in
     let _ = Printf.printf "ver : %d\n" !time in 
     match expr with
-  | Identifier name -> 
-    expr, Env.update_version env name !time
+    | Identifier name -> 
+      expr, Env.update_version env name !time
 
-  | Assign(BinOp.Empty, Access(t, (Identifier(name) as a), where), expr) ->
-    let expr, env =  transform expr env name time in
-    let where = expand_expr where env in
-    Assign(BinOp.Empty, Access(t, a, where), expr), env
+    | Assign(BinOp.Empty, Access(t, (Identifier(name) as a), where), expr) ->
+      (* do not enregister the modification in the env for these access 
+         otherwise it will bug, like in A[iozer] = 897; int b= A;
+         when registering, it becomes A[..] = 987; int b = 987*)
+      let expr, _ =  transform expr env name time in
+      let where = expand_expr where env in
+      Assign(BinOp.Empty, Access(t, a, where), expr), env
 
-  | Assign(BinOp.Empty, (Identifier(name) as a), expr) ->
-    let expr, env = transform expr env name time in
-    Assign(BinOp.Empty, a, expr), env
+    | Assign(BinOp.Empty, (Identifier(name) as a), expr) ->
+      let expr, env = transform expr env name time in
+      Assign(BinOp.Empty, a, expr), env
 
-  | Assign(op, (Access _ as a), expr) 
-  | Assign(op, (Identifier _ as a), expr) ->
-    propagate (Assign(BinOp.Empty, a, BinaryOp(op, a, expr))) env
+    | Assign(op, (Access _ as a), expr) 
+    | Assign(op, (Identifier _ as a), expr) ->
+      propagate (Assign(BinOp.Empty, a, BinaryOp(op, a, expr))) env
+
+(*
+    | Label(a, b) ->
+      let b, env = propagate b env in
+      Label(a, b), env
+    | Case b ->
+      let b, env = propagate b env in
+      Case b, env
+      *)
 
 
-  | Bloc l ->
-    let rec aux l env = match l with
-      | [] -> [], env
-      | x::tl ->
-        let x', env = propagate x env
-        in let l, env = aux tl env in  x'::l, env
-    in let l, env = aux l env
-    in Bloc l, env
+    | Bloc l ->
+      let l, env = update_list l env
+      in Bloc l, env
+    | Expression l ->
+      let l, env = update_list l env
+      in Expression l, env
+    | Call (a, l) ->
+      let l, env = update_list l env
+      in Call(a, l), env
 
-  | Declaration(spec, l) ->
-    let rec aux l env = match l with
-      | [] -> l, env
-      | (name, spec, decl, None)::tl ->
-        let env = Env.update_version env name !time in
-        let l, env = aux tl env in 
-        (name, spec, decl, None) :: l, env
-      | (name, spec, decl, Some expr) :: tl ->
-        let expr = expand_expr expr env in
-        let env = Env.update_version env name !time in
-        let env = Env.add_binding env name expr in
-        let l, env = aux tl env in 
-        (name, spec, decl, Some expr) :: l, env
-    in let l, env = aux l env
-    in Declaration(spec, l), env
+    | Declaration(spec, l) ->
+      let rec aux l env = match l with
+        | [] -> l, env
+        | (name, spec, decl, None)::tl ->
+          let env = Env.update_version env name !time in
+          let l, env = aux tl env in 
+          (name, spec, decl, None) :: l, env
+        | (name, spec, decl, Some expr) :: tl ->
+          let expr, env = transform expr env name time in
+          let l, env = aux tl env in 
+          (name, spec, decl, Some expr) :: l, env
+      in let l, env = aux l env
+      in Declaration(spec, l), env
 
-  | Constant _ ->
-    expr, env
+    | Constant _ ->
+      expr, env
 
-  | _ -> failwith (pretty_print_ast expr)
+    | _ -> failwith (pretty_print_ast expr)
 
 
   in fst @@ propagate expr env
