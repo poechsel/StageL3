@@ -62,18 +62,9 @@ let rec is_expr_propagatable expr =
     is_expr_propagatable what && is_expr_propagatable where
   | _ -> false
 
-let get_all_dependencies expr =
-  let rec aux expr l = 
-    match expr with
-    | Identifier s -> s::l
-    | BinaryOp(_, a, b) -> let l' = aux a l in aux b l'
-    | UnaryOp(_, a) -> aux a l
-    | _ -> l
-  in aux expr []
-
 let rec expand_expr expr env =
-  let rec expand expr = 
     let _ = print_endline @@ pretty_print_ast expr in
+  let rec expand expr = 
     match expr with
     | Identifier name -> 
       Env.get_last env name
@@ -82,20 +73,12 @@ let rec expand_expr expr env =
     | BinaryOp(op, a, b) ->
       BinaryOp(op, expand a, expand b)
     | Access(t, what, where) ->
-      Access(t, what, expand where)
+      Access(t, expand what, expand where)
     | _ -> expr
 
   in 
   if is_expr_propagatable expr then expand expr 
   else expr
-
-let transform expr env name = 
-  if is_expr_propagatable expr then 
-    let expr = expand_expr expr env in
-    let env = Env.update_version env name in
-    expr, Env.add_binding env name expr 
-  else 
-    expr, Env.update_version env name 
 
 let constant_propagation expr = 
   let env = Env.empty in
@@ -103,12 +86,28 @@ let constant_propagation expr =
   let rec update_list l env = match l with
     | [] -> [], env
     | x::tl ->
+      let _ = Printf.printf "iterating over %s\n" (pretty_print_ast x) in
       let x', env = propagate x env
       in let l, env = update_list tl env in  x'::l, env
+
+
+  and transform expr env name = 
+    if is_expr_propagatable expr then 
+      let expr, env = propagate expr env in
+      let env = Env.update_version env name in
+      expr, Env.add_binding env name expr 
+    else 
+      expr, Env.update_version env name 
+
   and propagate expr env =
     match expr with
     | Identifier _ ->
       expand_expr expr env, env 
+    | Access (a, what, where) ->
+      let w, env = propagate where env in
+      let what, env = propagate what env in
+      Access(a, what, w), env
+
     
 
     | Assign(BinOp.Empty, Access(t, a, where), expr) ->
@@ -121,7 +120,7 @@ let constant_propagation expr =
       Assign(BinOp.Empty, Access(t, a, where), expr), env
 
     | Assign(BinOp.Empty, (Identifier(name) as a), expr) ->
-      let expr, env = transform expr env name  in
+      let expr, env = transform expr env name  in 
       Assign(BinOp.Empty, a, expr), env
 
     | Assign(op, (Access _ as a), expr) 
