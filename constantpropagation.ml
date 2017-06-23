@@ -70,12 +70,21 @@ let rec expand_expr expr env =
     UnaryOp(op, expand expr)
   | BinaryOp(op, a, b) ->
     BinaryOp(op, expand a, expand b)
+  | Access(t, what, where) ->
+    Access(t, what, expand where)
   | _ -> expr
 
 in 
   if is_expr_propagatable expr then expand expr 
   else expr
 
+let transform expr env name time = 
+      if is_expr_propagatable expr then 
+        let expr = expand_expr expr env in
+        let env = Env.update_version env name !time in
+        expr, Env.add_binding env name expr 
+      else 
+        expr, Env.update_version env name !time 
 
 let constant_propagation expr = 
   let env = Env.empty in
@@ -86,18 +95,19 @@ let constant_propagation expr =
     match expr with
   | Identifier name -> 
     expr, Env.update_version env name !time
-  | Assign(BinOp.Empty, Identifier(name), expr) ->
-    if is_expr_propagatable expr then 
-      let expr = expand_expr expr env in
-      let env = Env.update_version env name !time in
-      let env = Env.add_binding env name expr in
-      Assign(BinOp.Empty, Identifier(name), expr), env
-    else 
-      let env = Env.update_version env name !time in
-      Assign(BinOp.Empty, Identifier(name), expr), env
 
-  | Assign(op, Identifier(name), expr) ->
-    propagate (Assign(BinOp.Empty, Identifier(name), BinaryOp(op, Identifier(name), expr))) env
+  | Assign(BinOp.Empty, Access(t, (Identifier(name) as a), where), expr) ->
+    let expr, env =  transform expr env name time in
+    let where = expand_expr where env in
+    Assign(BinOp.Empty, Access(t, a, where), expr), env
+
+  | Assign(BinOp.Empty, (Identifier(name) as a), expr) ->
+    let expr, env = transform expr env name time in
+    Assign(BinOp.Empty, a, expr), env
+
+  | Assign(op, (Access _ as a), expr) 
+  | Assign(op, (Identifier _ as a), expr) ->
+    propagate (Assign(BinOp.Empty, a, BinaryOp(op, a, expr))) env
 
 
   | Bloc l ->
