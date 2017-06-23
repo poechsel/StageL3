@@ -109,3 +109,64 @@ let get_all_variables program =
 
   in let _ = List.iter (fun x -> aux 0 0 x) program 
   in tbl
+
+
+let binop_pure_for_loop binop i =
+  match binop with
+  | BinaryOp(op, Identifier(i), e)
+  | BinaryOp(op, e, Identifier(i)) ->
+    begin
+      match op with
+      | BinOp.Slt
+      | BinOp.Sgt
+      | BinOp.Geq
+      | BinOp.Leq
+      | BinOp.Eq
+      | BinOp.Neq -> true
+      | _ -> false
+    end
+  | _ -> false
+
+let unop_pure_for_loop op i = 
+  match op with
+  | Assign(op, Identifier(i), expr) ->
+    begin
+    match op with
+    | BinOp.Add
+    | BinOp.Sub
+    | BinOp.Mul
+    | BinOp.Div -> true
+    | _ -> false
+    end
+  | UnaryOp(op, Identifier(i)) ->
+    begin
+      match op with
+      | UnOp.PostIncr | UnOp.PostDecr | UnOp.PreIncr | UnOp.PreDecr -> true
+      | _ -> false
+    end
+  | _ -> false
+
+
+let rec detect_pure_for_loop program =
+  let rec aux program = 
+  match program with 
+    | While (_, _, c) 
+    | Switch (_, c) 
+    | Case (_, c)
+    | FunctionDeclaration (_, _, _, c) 
+    | Label (_, c) ->
+      aux c
+    | IfThenElse (_, _, a, Some b) ->
+        aux a;
+        aux b;
+    | IfThenElse (_, _, a, None) ->
+        aux a;
+    | For (Some(Declaration(_, [name, _, _, Some start_value])), Some (binop), Some (unop), content) 
+      when unop_pure_for_loop unop name && binop_pure_for_loop binop name
+      ->
+      print_endline "found";
+      aux content
+    | Bloc l ->
+      List.iter aux l
+    | _ -> ()
+  in List.iter aux program

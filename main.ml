@@ -1,11 +1,16 @@
 open Prettyprint
+open Constantpropagation
+open Calcul
 open Variables
 
 let compile e =
   begin
     pretty_print e;
-    let r = get_all_variables e
-    in Hashtbl.iter (fun name (level, p) -> Printf.printf "%s: %d, %s\n" name level (print_rw_flag p)) r
+(*    let r = get_all_variables e
+    in let _ = Hashtbl.iter (fun name (level, p) -> Printf.printf "%s: %d, %s\n" name level (print_rw_flag p)) r
+    in let _ = print_endline "nex======="
+    in*) pretty_print [(constant_propagation (Bloc e))]
+    (*in detect_pure_for_loop e*)
   end
 
 (* stdin désigne l'entrée standard (le clavier) *)
