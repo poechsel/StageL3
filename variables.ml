@@ -146,6 +146,53 @@ let unop_pure_for_loop op i =
     end
   | _ -> false
 
+let one = Constant(CInt(Dec, Num.num_of_int 1, ""))
+
+(* return a triplet (i, start, end, step) if we have a pure for loop.
+   i is an iterator going from start to end (included) by a step of step
+   *)
+let create_iterateur for_loop =
+  match for_loop with
+  | For(Some start, Some end_cond, Some it, _) ->
+    let var_name, start = match start with
+      | Declaration(_, [name, _, _, Some start]) -> name, start
+      | Assign(BinOp.Empty, Identifier name, start) -> name, start
+      | _ -> failwith "start indices bad formatted"
+    in let stop = match end_cond with
+        | Identifier x when x = var_name -> Constant(CInt(Dec, Num.num_of_int 0, ""))
+        (* i < n *)
+        | BinaryOp(BinOp.Slt, Identifier r, l) when r = var_name -> 
+          BinaryOp (BinOp.Sub, l, one)
+        (* n < i *)
+        | BinaryOp(BinOp.Slt, r, Identifier l) when l = var_name -> 
+          BinaryOp (BinOp.Add, r, one)
+        (* i > n *)
+        | BinaryOp(BinOp.Sgt, Identifier r, l) when r = var_name -> 
+          BinaryOp (BinOp.Add, l, one)
+        (* n > i *)
+        | BinaryOp(BinOp.Sgt, r, Identifier l) when l = var_name -> 
+          BinaryOp (BinOp.Sub, r, one)
+            (* <= and => *)
+        | BinaryOp(BinOp.Leq, r, Identifier l) 
+        | BinaryOp(BinOp.Leq, Identifier l, r)  
+        | BinaryOp(BinOp.Geq, r, Identifier l)  
+        | BinaryOp(BinOp.Geq, Identifier l, r) when l = var_name -> 
+          r
+
+    in let step = match it with 
+        | UnaryOp(UnOp.PostIncr, Identifier x) 
+        | UnaryOp(UnOp.PreIncr, Identifier x) when x = var_name ->
+          (BinOp.Add, one)
+        | UnaryOp(UnOp.PostDecr, Identifier x) 
+        | UnaryOp(UnOp.PreDecr, Identifier x) when x = var_name ->
+          (BinOp.Sub, one)
+        | Assign(op, Identifier x, b) when x = var_name ->
+          (op, b)
+        | _ -> failwith "wrong step"
+    in (var_name, start, stop, step)
+
+  | _ -> failwith "not a pure for loop"
+
 
 let rec detect_pure_for_loop program =
   let rec aux program = 

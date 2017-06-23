@@ -26,8 +26,8 @@ let rec expand expr = match expr with
             )
   | BinaryOp(op1, BinaryOp(op2, a, b), c) when is_mul_class op1 && is_add_class op2 ->
     BinaryOp(op2,
-            BinaryOp(op1, a, c),
-            BinaryOp(op1, b, c)
+             BinaryOp(op1, a, c),
+             BinaryOp(op1, b, c)
             )
   | BinaryOp(op1, c, BinaryOp(op2, a, b)) when is_mul_class op1 && is_add_class op2 ->
     BinaryOp(op2,
