@@ -9,7 +9,7 @@ let compile e =
 (*    let r = get_all_variables e
     in let _ = Hashtbl.iter (fun name (level, p) -> Printf.printf "%s: %d, %s\n" name level (print_rw_flag p)) r
     in let _ = print_endline "nex======="
-    in*) pretty_print [(constant_propagation (Bloc e))]
+    in*) pretty_print [(constant_propagation (Ast.Bloc e))]
     (*in detect_pure_for_loop e*)
   end
 

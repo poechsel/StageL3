@@ -11,18 +11,32 @@ type constant_propagation =
 
 
 
-module Env = Map.Make(String)
+let key_to_string name ver = name ^ ";" ^ string_of_int ver
 
-let fst_t (a, _, _) = a
+module Env = struct
+  module Env = Map.Make (String)
 
-let debug env = 
-  Printf.printf "=====> START\n";
-  Env.iter (fun k (id, deps, _) -> begin
-      Printf.printf "%s: %d -> " k id;
-      List.iter (fun (n, i) -> Printf.printf "%s:%d, " n i) deps;
-      Printf.printf "\n" end
-    ) env;
-  Printf.printf "=====> END\n"
+  type t = {versions : int Env.t ; bindings :  ast Env.t}
+
+  let empty = {versions = Env.empty; bindings = Env.empty}
+  let update_version env variable version =
+    {env with versions = Env.add variable version env.versions}
+
+  let get_last env name = 
+    if not (Env.mem name env.versions) then
+      Identifier(name)
+    else 
+      let last_version = Env.find name env.versions in
+      let key = key_to_string name last_version in
+      if Env.mem key env.bindings then
+        Env.find key env.bindings
+      else Identifier(name)
+
+  let add_binding env name expr = 
+    let version = Env.find name env.versions in
+    {env with bindings = Env.add (key_to_string name version) expr env.bindings}
+        
+end
 
 let rec is_expr_propagatable expr = 
   match expr with
@@ -46,187 +60,78 @@ let get_all_dependencies expr =
     | _ -> l
   in aux expr []
 
-
-let rec expand_expr expr env = 
-  debug env;
-  let rec expand expr prev =
+let rec expand_expr expr env =
+  let rec expand expr = 
+  let _ = print_endline @@ pretty_print_ast expr in
   match expr with
-  | Identifier name ->
-    if Env.mem name env then
-      let _, deps, e = Env.find name env in
-      let fct (dep, ver) = 
-        if not (Env.mem dep env) then true 
-        else ver > fst_t (Env.find dep env) 
-      in if List.for_all fct deps && not (List.mem name prev) then
-        expand e (name::prev)
-      else expr
-    else expr
-  | BinaryOp(op, a, b) ->
-    BinaryOp(op, expand a prev , expand b prev)
+  | Identifier name -> 
+    Env.get_last env name
   | UnaryOp(op, a) ->
-    UnaryOp(op, expand a prev)
+    UnaryOp(op, expand expr)
+  | BinaryOp(op, a, b) ->
+    BinaryOp(op, expand a, expand b)
   | _ -> expr
 
-  in let expr = expand expr [] in expr
+in 
+  if is_expr_propagatable expr then expand expr 
+  else expr
 
 
-let constant_propagation expr =
+let constant_propagation expr = 
+  let env = Env.empty in
   let time = ref 0 in
-  let rec propagate affectation expr env = 
-    let propagate_ = propagate affectation in
+  let rec propagate expr env =
     let _ = incr time in
+    let _ = Printf.printf "ver : %d\n" !time in 
     match expr with
-    | Identifier name ->
-      expr, Env.add name (!time, [], expr) env
-    | Assign(BinOp.Empty, Identifier(name), expr) when is_expr_propagatable expr ->
-      let deps = get_all_dependencies expr in
-      let deps = List.map
-        (fun name ->
-           name, fst_t (Env.find name env)
-        )
-        deps in
+  | Identifier name -> 
+    expr, Env.update_version env name !time
+  | Assign(BinOp.Empty, Identifier(name), expr) ->
+    if is_expr_propagatable expr then 
       let expr = expand_expr expr env in
-      let env = Env.add name (!time, deps, expr) env in
+      let env = Env.update_version env name !time in
+      let env = Env.add_binding env name expr in
+      Assign(BinOp.Empty, Identifier(name), expr), env
+    else 
+      let env = Env.update_version env name !time in
       Assign(BinOp.Empty, Identifier(name), expr), env
 
-    | Assign(op, Identifier(name), expr) ->
-      propagate_ (Assign(BinOp.Empty, Identifier(name), BinaryOp(op, Identifier(name), expr))) env
-
-    | Assign(op, a, expr) ->
-      let a, env = propagate true a env in
-      let expr, env = propagate_ expr env in
-      Assign(op, a, expr), env
-
-    | BinaryOp(op, a, b) -> 
-      let a, env = propagate_ a env in
-      let b, env = propagate_ b env in
-      BinaryOp(op, a, b), env
-
-    | UnaryOp(op, a) ->
-      let a, env = propagate_ a env in
-      UnaryOp(op, a), env
-
-    | Bloc l ->
-      let rec aux l env = 
-        match l with
-        | [] -> [], env
-        | x::tl -> 
-          print_endline @@ "\n====> analyzing: " ^ (pretty_print_ast x) ^ "";
-          let x', env = propagate_ x env in
-          let l', env' = aux tl env
-          in x'::l', env'
-      in let l, env = aux l env in Bloc l, env
-
-    | Declaration(specs, l) -> 
-      let rec aux l env = 
-        match l with
-        | [] -> [], env
-        | (name, useless1, useless2, None)::tl -> 
-          let l', env' = aux tl env
-          in (name, useless1, useless2, None)::l', 
-             Env.add name (!time, [], Identifier name) env'
-        | (name, useless1, useless2, Some expr)::tl ->
-          let deps = get_all_dependencies expr in
-          let deps = List.map
-              (fun name ->
-                 name, if not(Env.mem name env) then 0 else fst_t (Env.find name env)
-              )
-              deps in
-          let t = String.concat " " (List.map fst deps)
-          in let _ = Printf.printf "adding %s with deps %s\n" name t in
-
-          let l', env' = aux tl env
-          in (name, useless1, useless2, Some expr)::l', 
-             Env.add name (!time, deps, expr) env'
-
-      in let l, env = aux l env
-      in Declaration(specs, l), env
-    | _ -> expr, env
+  | Assign(op, Identifier(name), expr) ->
+    propagate (Assign(BinOp.Empty, Identifier(name), BinaryOp(op, Identifier(name), expr))) env
 
 
-  (*  | Identifier name when affectation = false -> begin
-      let _ = print_endline "YES\n" in
-      if Env.mem name env then
-        let _, deps, e = Env.find name env in
-        if (List.for_all (fun (dep, ver) -> if not (Env.mem dep env) then true else let _ = Printf.printf "dep is %s, wanting %d, have %d" dep ver (fst_t (Env.find dep env)) in ver >= fst_t (Env.find dep env)) deps)  
-        
-        
-        then e, env
-        else expr, env
-      else expr, Env.add name (0, [], Identifier name) env
-             end
-    | Identifier name -> 
-        expr, Env.add name (!time, [], Identifier name) env
+  | Bloc l ->
+    let rec aux l env = match l with
+      | [] -> [], env
+      | x::tl ->
+        let x', env = propagate x env
+        in let l, env = aux tl env in  x'::l, env
+    in let l, env = aux l env
+    in Bloc l, env
+
+  | Declaration(spec, l) ->
+    let rec aux l env = match l with
+      | [] -> l, env
+      | (name, spec, decl, None)::tl ->
+        let env = Env.update_version env name !time in
+        let l, env = aux tl env in 
+        (name, spec, decl, None) :: l, env
+      | (name, spec, decl, Some expr) :: tl ->
+        let expr = expand_expr expr env in
+        let env = Env.update_version env name !time in
+        let env = Env.add_binding env name expr in
+        let l, env = aux tl env in 
+        (name, spec, decl, Some expr) :: l, env
+    in let l, env = aux l env
+    in Declaration(spec, l), env
+
+  | Constant _ ->
+    expr, env
+
+  | _ -> failwith (pretty_print_ast expr)
 
 
-    | Assign(BinOp.Empty, Identifier(name), expr) when is_expr_propagatable expr ->
-      let expr, env = propagate_ expr env in
-      let deps = get_all_dependencies expr in
-      let deps = List.map
-        (fun name ->
-           name, fst_t (Env.find name env)
-        )
-        deps
-      in Assign(BinOp.Empty, Identifier(name), expr), Env.add name (!time, deps, expr) env
-
-    | Assign(op, a, expr) ->
-      let _ = print_endline "################" in
-      let a, env = propagate true a env in
-      let _ = print_endline "################" in
-      let expr, env = propagate_ expr env in
-      Assign(op, a, expr), env
-
-    | BinaryOp(op, a, b) -> 
-      let a, env = propagate_ a env in
-      let b, env = propagate_ b env in
-      BinaryOp(op, a, b), env
-
-    | UnaryOp(op, a) ->
-      let a, env = propagate_ a env in
-      UnaryOp(op, a), env
-
-    | Bloc l ->
-      let rec aux l env = 
-        match l with
-        | [] -> [], env
-        | x::tl -> 
-          let x', env = propagate_ x env in
-          let l', env' = aux tl env
-          in x'::l', env'
-      in let l, env = aux l env in Bloc l, env
-
-    | Declaration(specs, l) -> 
-      let rec aux l env = 
-        match l with
-        | [] -> [], env
-        | (name, useless1, useless2, None)::tl -> 
-          let l', env' = aux tl env
-          in (name, useless1, useless2, None)::l', 
-             Env.add name (!time, [], Identifier name) env'
-        | (name, useless1, useless2, Some expr)::tl ->
-          let deps = get_all_dependencies expr in
-          let deps = List.map
-              (fun name ->
-                 name, if not(Env.mem name env) then 0 else fst_t (Env.find name env)
-              )
-              deps in
-          let t = String.concat " " (List.map fst deps)
-          in let _ = Printf.printf "adding %s with deps %s\n" name t in
-          let expr, env = propagate_ expr env in
-
-          let l', env' = aux tl env
-          in (name, useless1, useless2, Some expr)::l', 
-             Env.add name (!time, deps, expr) env'
-
-      in let l, env = aux l env
-      in Declaration(specs, l), env
-
-
-
-    | Constant c -> expr, env
-*)
-  in fst @@ propagate false expr (Env.empty)
-
+  in fst @@ propagate expr env
 
 
 (*
