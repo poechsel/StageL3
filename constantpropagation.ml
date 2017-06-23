@@ -60,6 +60,8 @@ let rec is_expr_propagatable expr =
     end
   | Access(_, what, where) ->
     is_expr_propagatable what && is_expr_propagatable where
+  | Call(_, l) ->
+    List.for_all is_expr_propagatable l
   | _ -> false
 
 let rec expand_expr expr env =
@@ -74,6 +76,8 @@ let rec expand_expr expr env =
       BinaryOp(op, expand a, expand b)
     | Access(t, what, where) ->
       Access(t, expand what, expand where)
+    | Call(a, l) ->
+      Call(a, List.map expand l)
     | _ -> expr
 
   in 
