@@ -85,7 +85,7 @@ let get_all_variables program =
     | IfThenElse (_, a, b, c) ->
       aux level permission a;
       aux level permission b;
-      (match c with Some c -> aux level permission c | _ -> ())
+      aux level permission c 
 
     | Return (Some a) ->
       aux level permission a
@@ -156,11 +156,9 @@ let rec detect_pure_for_loop program =
     | FunctionDeclaration (_, _, _, c) 
     | Label (_, c) ->
       aux c
-    | IfThenElse (_, _, a, Some b) ->
+    | IfThenElse (_, _, a, b) ->
         aux a;
         aux b;
-    | IfThenElse (_, _, a, None) ->
-        aux a;
     | For (Some(Declaration(_, [name, _, _, Some start_value])), Some (binop), Some (unop), content) 
       when unop_pure_for_loop unop name && binop_pure_for_loop binop name
       ->

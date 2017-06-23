@@ -182,7 +182,7 @@ conditional_expression:
     | logical_or_expression
         { $1 }
     | logical_or_expression QUESTION expression COLON conditional_expression
-        { IfThenElse(Ternary, $1, $3, Some $5) }
+        { IfThenElse(Ternary, $1, $3, $5) }
 
 assignment_operator:
     | ASSIGN { BinOp.Empty }
@@ -595,9 +595,9 @@ expression_statement:
 
 selection_statement:
     | IF LPAREN expression RPAREN statement %prec below_ELSE
-        { IfThenElse(If, $3, $5, None) }
+        { IfThenElse(If, $3, $5, Bloc []) }
     | IF LPAREN expression RPAREN statement ELSE statement 
-        { IfThenElse(If, $3, $5, Some $7) }
+        { IfThenElse(If, $3, $5, $7) }
     | SWITCH LPAREN expression RPAREN statement
         { Switch($3, $5) }
 

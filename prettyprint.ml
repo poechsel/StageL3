@@ -35,10 +35,10 @@ let rec pretty_print_ast ast =
     __print_list (pretty_print_ast) ", " l
   | IfThenElse(t, cond, if_sts, else_sts) ->
     let s_if = pretty_print_ast if_sts in
-    let s_else = match else_sts with | None -> "" | Some else_sts  -> pretty_print_ast else_sts in
+    let s_else = pretty_print_ast else_sts in
     begin match t with
       | Ternary -> "((" ^ pretty_print_ast cond ^ ") ? " ^ s_if ^ " : " ^ s_else ^ ")" 
-      | _ -> Printf.sprintf "if (%s) { \n%s\n}else{\n%s\n}\n" (pretty_print_ast cond) s_if s_else
+      | _ -> Printf.sprintf "if (%s)  \n%s\nelse\n%s\n\n" (pretty_print_ast cond) s_if s_else
     end
   | Return None -> "return;\n"
   | Return (Some e) -> "return " ^ pretty_print_ast e  ^ ";\n"
@@ -49,7 +49,7 @@ let rec pretty_print_ast ast =
   | Label (n, s) -> n ^ " :\n" ^ pretty_print_ast s
   | Case (a, b) -> "case " ^ pretty_print_ast a ^ ":\n" ^ pretty_print_ast b
   | Bloc l -> let _ = incr indentation_level in
-    let o = "{\n" ^ __print_list (fun a -> mk_indent () ^ pretty_print_ast a) ";\n" l ^ "}" in
+    let o = "{\n" ^ __print_list (fun a -> mk_indent () ^ pretty_print_ast a) ";\n" l ^ "\n}" in
     let _ = decr indentation_level in
     o
   | Switch (expr, l) -> "switch (" ^ pretty_print_ast expr ^ ")" ^ pretty_print_ast l ^ "\n"

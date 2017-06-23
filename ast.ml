@@ -192,7 +192,7 @@ and ast =
   | Declaration of declaration_specifiers list * (string * declaration_specifiers list * declarator * ast option) list 
   | FunctionDeclaration of declaration_specifiers list * declarator_type * ast list * ast
 
-  | IfThenElse of conditionnal_type * ast * ast * ast option
+  | IfThenElse of conditionnal_type * ast * ast * ast 
   | Return of ast option
   | Break
   | Continue
