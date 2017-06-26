@@ -148,8 +148,8 @@ let constant_propagation expr =
         
     | BinaryOp _ when is_expr_propagatable expr ->
       expand_expr expr env, env
-    (*| BinaryOp(op, a, b) ->
-      let  a, env = propagate a env in
+    | BinaryOp(op, a, b) ->
+    (*)  let  a, env = propagate a env in
       let  b, env = propagate b env in
     *)    BinaryOp(op, a, b), env
 
