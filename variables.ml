@@ -178,6 +178,7 @@ let create_iterateur for_loop =
         | BinaryOp(BinOp.Geq, r, Identifier l)  
         | BinaryOp(BinOp.Geq, Identifier l, r) when l = var_name -> 
           r
+        | _ -> failwith "not a good stop condition"
 
     in let step = match it with 
         | UnaryOp(UnOp.PostIncr, Identifier x) 
