@@ -12,103 +12,6 @@ let print_rw_flag f =
   in let a = if f land is_array = is_array then "array" else ""
   in let u = if f land is_function = is_function then "function " else ""
   in r ^ w ^ a ^ u
-      
-
-let get_all_variables program =
-  let tbl = Hashtbl.create 0 in
-  let rec aux level permission program = 
-  match program with
-    | Identifier ";" | Identifier ""-> ()
-    | Identifier s -> 
-      print_string "ident\n";
-      print_endline (pretty_print_ast program);
-      print_endline "";
-      if Hashtbl.mem tbl s then 
-              let l', p' = Hashtbl.find tbl s in
- Hashtbl.replace tbl s (l', permission lor p' )
-
-      else Hashtbl.add tbl s (-1, permission)
-
-    | Declaration (_, l) ->
-      print_string "declaration\n";
-      print_endline (pretty_print_ast program);
-      print_endline "";
-      List.iter (fun (s, _, d, a) ->
-          let f_a = match d with | DeArray _ -> is_array | DeFunction _ -> is_function | _ -> 0 in
-          let _ = if Hashtbl.mem tbl s then 
-              let l', p' = Hashtbl.find tbl s in
-              Hashtbl.replace tbl s (level, permission lor f_a lor p' lor write)
-            else Hashtbl.add tbl s (level, permission lor write lor f_a)
-          in match a with | None -> () | Some a -> aux level permission a  ) l
-
-    | InitializerList l 
-    | Expression l ->
-      List.iter (aux level permission) l
-
-    | Call (w, l) ->
-      aux level (permission lor read lor is_function) w;
-      List.iter (aux level permission) l
-
-    | Access (Array, a, b) ->  begin
-        aux level (permission lor write lor is_array) a;
-        aux level (permission lor read) b;
-      end
-
-    | UnaryOp(UnOp.PostDecr, a)
-    | UnaryOp(UnOp.PreDecr, a)
-    | UnaryOp(UnOp.PreIncr, a)
-    | UnaryOp(UnOp.PostIncr, a) ->
-      aux level (permission lor read lor write) a
-
-    | Access (_, a, _) 
-    | UnaryOp(_, a) 
-    | Cast (_, a) ->
-      aux level (permission lor read) a
-
-    | Default a
-    | Label(_, a) ->
-      aux level permission a
-
-    | BinaryOp(_, a, b) -> 
-      aux level (permission lor read) a;
-      aux level (permission lor read) b;
-
-    | Switch (a, b) 
-    | While (_, a, b)
-    | Case (a, b) -> 
-      aux level permission a;
-      aux level permission b;
-
-    | Assign (_, a, b) ->
-      aux level (permission lor write) a; aux level (permission lor read) b
-
-    | IfThenElse (_, a, b, c) ->
-      aux level permission a;
-      aux level permission b;
-      aux level permission c 
-
-    | Return (Some a) ->
-      aux level permission a
-
-    | For (a, b, c, d) ->
-      let f x = match x with | None -> () | Some x -> aux (level + 1) permission x in
-      f a; f b; f c; aux level permission d
-
-    | Bloc l ->
-      List.iter (aux (level + 1) permission) l
-
-    | FunctionDeclaration(_, (name, _, _), _, content) ->
-      print_string "fuction\n";
-      print_endline (pretty_print_ast program);
-      print_endline "";
-      (* we should had the name, but laziness is the winner *)
-      aux level permission content
-    | _ -> ()
-
-
-
-  in let _ = List.iter (fun x -> aux 0 0 x) program 
-  in tbl
 
 
 let binop_pure_for_loop binop i =
@@ -178,7 +81,7 @@ let create_iterateur for_loop =
         | BinaryOp(BinOp.Geq, r, Identifier l)  
         | BinaryOp(BinOp.Geq, Identifier l, r) when l = var_name -> 
           r
-        | _ -> failwith "not a good stop condition"
+        | _ -> let _ = Printf.printf "========ERROR ===========\n%s\n" (pretty_print_ast end_cond) in failwith "not a good stop condition"
 
     in let step = match it with 
         | UnaryOp(UnOp.PostIncr, Identifier x) 
@@ -192,7 +95,7 @@ let create_iterateur for_loop =
         | _ -> failwith "wrong step"
     in (var_name, start, stop, step)
 
-  | _ -> failwith "not a pure for loop"
+  | _ -> raise Not_found
 
 
 let rec detect_pure_for_loop program =
@@ -216,3 +119,113 @@ let rec detect_pure_for_loop program =
       List.iter aux l
     | _ -> ()
   in List.iter aux program
+
+
+let add_variable tbl name forloop indices level permission =
+    if Hashtbl.mem tbl name then
+      let l', p'= Hashtbl.find tbl name in
+      let rec aux l = match l with
+        | [] -> [(permission, forloop, indices)]
+        | (p', f, i) :: tl when ((p' lor permission) land is_array != is_array) || (f == forloop && indices == i) ->
+          (permission lor p', f, i) :: tl
+        | x :: tl ->
+          x :: aux tl
+      in Hashtbl.replace tbl name (l', aux p')
+    else
+      Hashtbl.add tbl name (level, [permission, forloop, indices])
+
+let get_all_variables program = 
+  let tbl = Hashtbl.create 0 in
+  let rec aux forloop_list indices_list level permission program =
+  match program with
+    | Identifier ";" | Identifier ""-> ()
+    | Identifier s -> 
+      print_string "ident\n";
+      print_endline (pretty_print_ast program);
+      print_endline "";
+      add_variable tbl s forloop_list indices_list (-1) permission
+
+    | Declaration (_, l) ->
+      print_string "declaration\n";
+      print_endline (pretty_print_ast program);
+      print_endline "";
+      List.iter (fun (s, _, d, a) ->
+          let f_a = match d with | DeArray _ -> is_array | DeFunction _ -> is_function | _ -> 0 in
+          let _ = add_variable tbl s forloop_list indices_list level (permission lor f_a lor write)
+          in match a with | None -> () | Some a -> aux forloop_list indices_list level permission a  ) l
+
+    | InitializerList l 
+    | Expression l ->
+      List.iter (aux forloop_list indices_list level permission) l
+
+    | Call (w, l) ->
+      aux  forloop_list indices_list level (permission lor read lor is_function) w;
+      List.iter (aux forloop_list indices_list  level permission) l
+
+    | Access (Array, a, b) ->  begin
+        aux forloop_list (b::indices_list) level (permission lor write lor is_array) a;
+        aux forloop_list indices_list  level ((permission lor read) land lnot is_array) b;
+      end
+
+    | UnaryOp(UnOp.PostDecr, a)
+    | UnaryOp(UnOp.PreDecr, a)
+    | UnaryOp(UnOp.PreIncr, a)
+    | UnaryOp(UnOp.PostIncr, a) ->
+      aux forloop_list indices_list  level (permission lor read lor write) a
+
+    | Access (_, a, _) 
+    | UnaryOp(_, a) 
+    | Cast (_, a) ->
+      aux forloop_list indices_list  level (permission lor read) a
+
+    | Default a
+    | Label(_, a) ->
+      aux forloop_list indices_list  level permission a
+
+    | BinaryOp(_, a, b) -> 
+      aux forloop_list indices_list  level (permission lor read) a;
+      aux forloop_list indices_list  level (permission lor read) b;
+
+    | Switch (a, b) 
+    | While (_, a, b)
+    | Case (a, b) -> 
+      aux forloop_list indices_list  level permission a;
+      aux forloop_list indices_list  level permission b;
+
+    | Assign (_, a, b) ->
+      aux forloop_list indices_list  level (permission lor write) a; aux forloop_list indices_list  level (permission lor read) b
+
+    | IfThenElse (_, a, b, c) ->
+      aux forloop_list indices_list  level permission a;
+      aux forloop_list indices_list  level permission b;
+      aux forloop_list indices_list  level permission c 
+
+    | Return (Some a) ->
+      aux forloop_list indices_list  level permission a
+
+    | For (a, b, c, d) ->
+      let f x = match x with | None -> () | Some x -> 
+        aux forloop_list indices_list  (level + 1) permission x in
+      f a; f b; f c; 
+      begin try
+          let i = create_iterateur (For(a, b, c, d))
+          in  aux (i::forloop_list) indices_list  level permission d
+        with Not_found ->
+      aux forloop_list indices_list  level permission d
+          end
+
+    | Bloc l ->
+      List.iter (aux forloop_list indices_list  (level + 1) permission) l
+
+    | FunctionDeclaration(_, (name, _, _), _, content) ->
+      print_string "fuction\n";
+      print_endline (pretty_print_ast program);
+      print_endline "";
+      (* we should had the name, but laziness is the winner *)
+      aux forloop_list indices_list  level permission content
+    | _ -> ()
+
+
+
+  in let _ = List.iter (fun x -> aux [] [] 0 0 x) program 
+  in tbl

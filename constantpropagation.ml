@@ -176,10 +176,10 @@ let constant_propagation expr =
         | None -> None, env
         | Some x -> let x, env = propagate x env in Some x, env
       in
-      let a, env = aux env a in
+      (*let a, env = aux env a in
       let b, env = aux env b in
       let c, env = aux env c in
-      let content, env' = propagate content env in
+     *) let content, env' = propagate content env in
       let env' = Env.restrict env' env in
       let env = Env.unify env env' in
       For(a, b, c, content), env
