@@ -19,12 +19,12 @@ module Env = struct
   type t = ast Env.t
 
   let empty = Env.empty
-  let update_version env variable =
-              Env.add variable  (Identifier(variable)) env
+  let update_version env variable uuid =
+              Env.add variable  (Identifier(variable, uuid)) env
 
   let get_last env name = 
     if not (Env.mem name env) then
-      Identifier(name)
+      Identifier(name, -1)
     else 
         Env.find name env
 
@@ -68,7 +68,7 @@ let rec expand_expr expr env =
     let _ = print_endline @@ pretty_print_ast expr in
   let rec expand expr = 
     match expr with
-    | Identifier name -> 
+    | Identifier(name, uuid) -> 
       Env.get_last env name
     | UnaryOp(op, a) ->
       UnaryOp(op, expand expr)
@@ -95,13 +95,13 @@ let constant_propagation expr =
       in let l, env = update_list tl env in  x'::l, env
 
 
-  and transform expr env name = 
+  and transform expr env name uuid = 
     if is_expr_propagatable expr then 
       let expr, env = propagate expr env in
-      let env = Env.update_version env name in
+      let env = Env.update_version env name uuid in
       expr, Env.add_binding env name expr 
     else 
-      expr, Env.update_version env name 
+      expr, Env.update_version env name uuid
 
   and propagate expr env =
     match expr with
@@ -123,8 +123,8 @@ let constant_propagation expr =
       let a, _ = propagate a env in 
       Assign(BinOp.Empty, Access(t, a, where), expr), env
 
-    | Assign(BinOp.Empty, (Identifier(name) as a), expr) ->
-      let expr, env = transform expr env name  in 
+    | Assign(BinOp.Empty, (Identifier(name, uuid) as a), expr) ->
+      let expr, env = transform expr env name  uuid in 
       Assign(BinOp.Empty, a, expr), env
 
     | Assign(op, (Access _ as a), expr) 
@@ -132,11 +132,11 @@ let constant_propagation expr =
       propagate (Assign(BinOp.Empty, a, BinaryOp(op, a, expr))) env
 
 
-    | UnaryOp(UnOp.PreIncr, Identifier name)
-    | UnaryOp(UnOp.PreDecr, Identifier name) 
-    | UnaryOp(UnOp.PostDecr, Identifier name) 
-    | UnaryOp(UnOp.PostIncr, Identifier name) ->
-      expr, Env.update_version env name
+    | UnaryOp(UnOp.PreIncr, Identifier(name, uuid))
+    | UnaryOp(UnOp.PreDecr, Identifier(name, uuid)) 
+    | UnaryOp(UnOp.PostDecr, Identifier(name, uuid)) 
+    | UnaryOp(UnOp.PostIncr, Identifier(name, uuid)) ->
+      expr, Env.update_version env name uuid
 
     | UnaryOp _ when is_expr_propagatable expr ->
       expand_expr expr env, env
@@ -231,14 +231,14 @@ let constant_propagation expr =
     | Declaration(spec, l) ->
       let rec aux l env = match l with
         | [] -> l, env
-        | (name, spec, decl, None)::tl ->
-          let env = Env.update_version env name in
+        | ((name, uuid), spec, decl, None)::tl ->
+          let env = Env.update_version env name (-1) in
           let l, env = aux tl env in
-          (name, spec, decl, None) :: l, env
-        | (name, spec, decl, Some expr) :: tl ->
-          let expr, env = transform expr env name in
+          ((name, uuid), spec, decl, None) :: l, env
+        | ((name, uuid), spec, decl, Some expr) :: tl ->
+          let expr, env = transform expr env name (-1) in
           let l, env = aux tl env in 
-          (name, spec, decl, Some expr) :: l, env
+          ((name, uuid), spec, decl, Some expr) :: l, env
       in let l, env = aux l env
       in Declaration(spec, l), env
 

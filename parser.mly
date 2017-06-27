@@ -3,7 +3,7 @@
 open Ast
 open Num
 
-
+let uuid = ref 0
 
 
 %}
@@ -35,7 +35,7 @@ main:
 
 identifier:
     | IDENT
-        { Identifier ($1) }
+        {  let _ = incr uuid in Identifier ($1, !uuid) }
 
 primary_expression:
     | identifier
@@ -295,9 +295,9 @@ designator_list:
 
 designator:
     | LBRACKET constant_expression RBRACKET
-        { Access(Array, Identifier(""), $2) }
+        { Access(Array, Identifier("", 0), $2) }
     | DOT identifier
-        { Access(Member, Identifier(""), $2) }
+        { Access(Member, Identifier("", 0), $2) }
 
 storage_class_specifier:
     | TYPEDEF   { Typedef  }
@@ -364,11 +364,11 @@ struct_declarator_list:
 
 struct_declarator:
     | declarator
-        { let a, b, c = $1 in a, b, c, None}
+        { let a, b, c = $1 in fst a, b, c, None}
     | COLON constant_expression
         { "", [], DeBasic, Some $2 }
     | declarator COLON constant_expression
-        { let a, b, c = $1 in a, b, c, Some $3 }
+        { let a, b, c = $1 in fst a, b, c, Some $3 }
 
 enum_specifier:
     | ENUM IDENT
@@ -403,7 +403,7 @@ declarator:
 
 direct_declarator:
     | IDENT
-        { $1, DeBasic }
+        { ($1, 0), DeBasic }
     | LPAREN declarator RPAREN
         { let id, pr, de = $2 in id, DeRecursive(pr, de)}
     | direct_declarator LBRACKET type_qualifier_list assignment_expression RBRACKET
@@ -469,7 +469,7 @@ parameter_declaration:
 
 abstract_declarator:
     | pointer
-        { "", $1, DeBasic }
+        { ("", 0), $1, DeBasic }
     | pointer direct_abstract_declarator
         { let a, b = $2 in a, $1, b }
     | direct_abstract_declarator
@@ -479,25 +479,25 @@ direct_abstract_declarator:
     | LPAREN abstract_declarator RPAREN
         { let id, pr, de = $2 in id, DeRecursive(pr, de)}
     | LBRACKET type_qualifier_list assignment_expression RBRACKET
-        { let id, de = "", DeBasic in id, DeArray(de, List.rev $2, DeArraySize $3)}
+        { let id, de = ("", 0), DeBasic in id, DeArray(de, List.rev $2, DeArraySize $3)}
     | LBRACKET assignment_expression RBRACKET
-        { let id, de = "", DeBasic in id, DeArray(de, [], DeArraySize $2)}
+        { let id, de = ("", 0), DeBasic in id, DeArray(de, [], DeArraySize $2)}
     | LBRACKET type_qualifier_list RBRACKET
-        { let id, de = "", DeBasic in id, DeArray(de, List.rev $2, DeArrayUndef)}
+        { let id, de = ("", 0), DeBasic in id, DeArray(de, List.rev $2, DeArrayUndef)}
     | LBRACKET RBRACKET
-        { let id, de = "", DeBasic in id, DeArray(de, [], DeArrayUndef)}
+        { let id, de = ("", 0), DeBasic in id, DeArray(de, [], DeArrayUndef)}
     | LBRACKET STATIC assignment_expression RBRACKET
-        { let id, de = "", DeBasic in id, DeArray(de, Static::[], DeArraySize $3)}
+        { let id, de = ("", 0), DeBasic in id, DeArray(de, Static::[], DeArraySize $3)}
     | LBRACKET STATIC type_qualifier_list assignment_expression RBRACKET
-        { let id, de = "", DeBasic in id, DeArray(de, Static::List.rev $3, DeArraySize $4)}
+        { let id, de = ("", 0), DeBasic in id, DeArray(de, Static::List.rev $3, DeArraySize $4)}
     | LBRACKET type_qualifier_list STATIC assignment_expression RBRACKET
-        { let id, de = "", DeBasic in id, DeArray(de, List.rev (Static::$2), DeArraySize $4)}
+        { let id, de = ("", 0), DeBasic in id, DeArray(de, List.rev (Static::$2), DeArraySize $4)}
     | LBRACKET MUL RBRACKET
-        { let id, de = "", DeBasic in id, DeArray(de, [], DeArrayVla)}
+        { let id, de = ("", 0), DeBasic in id, DeArray(de, [], DeArrayVla)}
     | LPAREN parameter_type_list RPAREN
-        { let id, de = "", DeBasic in id, DeFunction(de, List.rev $2) }
+        { let id, de = ("", 0), DeBasic in id, DeFunction(de, List.rev $2) }
     | LPAREN RPAREN
-        { let id, de = "", DeBasic in id, DeFunction(de, []) }
+        { let id, de = ("", 0), DeBasic in id, DeFunction(de, []) }
 
     | direct_abstract_declarator LBRACKET type_qualifier_list assignment_expression RBRACKET
         { let id, de = $1 in id, DeArray(de, List.rev $3, DeArraySize $4)}
@@ -541,7 +541,7 @@ type_name:
     | specifier_qualifier_list abstract_declarator
         { $1, $2 }
     | specifier_qualifier_list
-        { $1, ("", [], DeBasic) }
+        { $1, (("", 0), [], DeBasic) }
 
 
 
@@ -590,7 +590,7 @@ expression_statement:
     | expression ENDLINE
         { $1 }
     | ENDLINE 
-        { Identifier(";")}
+        { Identifier(";", 0)}
 
 
 selection_statement:

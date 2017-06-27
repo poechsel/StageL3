@@ -7,13 +7,13 @@ open Variables
 let analyse e = 
     let r = get_all_variables e
     in let _ = Hashtbl.iter (fun name (level, p) -> 
-        List.iter (fun (p, f, i) ->
-            match (p, f, i) with
-            | p, [], [] ->
+        List.iter (fun (p, f, i, uuid) ->
+            match (p, f, i, uuid) with
+            | p, [], [], _ ->
         Printf.printf "%s: %d, %s\n" name level (print_rw_flag p)
-            | p, _, l -> 
+            | p, _, l , _-> 
               let n = 
-                pretty_print_ast @@ List.fold_left (fun a b -> Ast.Access(Ast.Array, a, b)) (Ast.Identifier name) l
+                pretty_print_ast @@ List.fold_left (fun a b -> Ast.Access(Ast.Array, a, b)) (Ast.Identifier (name, 0)) l
               in 
         Printf.printf "%s: %d, %s\n" n level (print_rw_flag p)
           ) p) r

@@ -41,15 +41,45 @@ let rec expand expr = match expr with
   | expr -> expr
 
 let rec present_id expr i = match expr with
-  | Identifier j -> i = j
+  | Identifier (j, _) -> i = j
   | BinaryOp(_, a, b) -> present_id a i || present_id b i
   | UnaryOp(_, a) -> present_id a i
   | _ -> false
 
 let not_present_id expr i = not (present_id expr i)
 
-(*
-let rec reorient_ids expr loops_ids constant_ids = 
+
+let rec reorient_ids expr loops_ids = 
   match expr with
-  | BinaryOp(op, Identifier a, Identifier b)
-    *)
+  | BinaryOp(op, (Identifier (a, _) as a'), b) when List.mem a loops_ids ->
+    BinaryOp(op, reorient_ids b loops_ids, a')
+  | BinaryOp(op, a, b) ->
+    BinaryOp(op, reorient_ids a loops_ids, reorient_ids b loops_ids)
+  | UnaryOp(op, a) -> 
+    UnaryOp(op, reorient_ids a loops_ids)
+  | expr -> expr
+
+let rec check_constants expr constants = 
+  match expr with
+  | Identifier (name, _) ->
+    List.mem name constants
+  | Constant _ -> true
+  | BinaryOp(op, a, b) ->
+    check_constants a constants && check_constants b constants
+  | UnaryOp(op, a) ->
+    check_constants a constants
+  | _ -> false
+
+
+let get_coefficients expr loop_ids =
+    match expr with
+      | _ -> 1
+
+    
+let rec is_valid_indexation expr loops_ids constant_ids =
+  let expr = expand expr in
+  let expr = reorient_ids expr loops_ids in
+  if check_constants expr (loops_ids @ constant_ids) then
+    Some (get_coefficients expr loops_ids)
+  else 
+    None

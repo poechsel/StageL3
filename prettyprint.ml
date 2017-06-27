@@ -8,7 +8,7 @@ let __print_list fct sep l =
 
 let rec pretty_print_ast ast = 
   match ast with
-  | Identifier s -> s
+  | Identifier (s, _) -> s
   | InitializerList l -> 
     "{" ^ 
     if l = [] then "" 
@@ -66,7 +66,7 @@ let rec pretty_print_ast ast =
       (pretty_print_ast content)
   | Declaration (spec, l) ->
     pretty_print_decl_spec spec ^ " " ^
-    __print_list (fun (name, spec, decl, ast) ->
+    __print_list (fun ((name, uuid) , spec, decl, ast) ->
         pretty_print_decl_spec spec ^ " " ^ pretty_print_decl decl name ^ 
         (match ast with | None -> "" | Some a -> " = " ^ pretty_print_ast a)
       ) ", " l
@@ -168,7 +168,7 @@ and pretty_print_decl decl name =  match decl with
     ^ ")"
 and pretty_print_decl_type t = 
   let name, specs, decl = t in
-  pretty_print_decl_spec specs ^ " " ^ pretty_print_decl decl name
+  pretty_print_decl_spec specs ^ " " ^ pretty_print_decl decl (fst name)
 
 and pretty_print_decl_params params =
   let temp params = match params with

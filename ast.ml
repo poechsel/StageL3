@@ -159,7 +159,7 @@ and type_name =
   declaration_specifiers list * declarator_type
 
 and declarator_type =
-  string * declaration_specifiers list * declarator
+  (string * int) * declaration_specifiers list * declarator
 
 and declarator_parameter =
   | DeIdentifier of string
@@ -177,7 +177,7 @@ and initializer_what =
   | InMember of string
 
 and ast = 
-  | Identifier of string
+  | Identifier of string * int
   | InitializerList of ast list
   | Constant of constant
   | String of string
@@ -189,7 +189,7 @@ and ast =
   | Assign of BinOp.op * ast * ast
   | Type of type_name
   | Expression of ast list
-  | Declaration of declaration_specifiers list * (string * declaration_specifiers list * declarator * ast option) list 
+  | Declaration of declaration_specifiers list * ((string * int) * declaration_specifiers list * declarator * ast option) list 
   | FunctionDeclaration of declaration_specifiers list * declarator_type * ast list * ast
 
   | IfThenElse of conditionnal_type * ast * ast * ast 
