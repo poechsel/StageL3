@@ -28,7 +28,7 @@ let rec pretty_print_ast ast =
   | UnaryOp(op, ast) ->
     UnOp.pretty_print (pretty_print_ast ast) op
   | BinaryOp(op, a, b) ->
-    pretty_print_ast a ^ BinOp.pretty_print op ^ pretty_print_ast b
+    (if op = BinOp.Sub then "SUB" else "" ) ^ ("(" ^ pretty_print_ast a ^ BinOp.pretty_print op ^ pretty_print_ast b ^ ")")
   | Assign(op, a, b) ->
     pretty_print_ast a ^ " " ^ BinOp.pretty_print op ^ "= " ^ pretty_print_ast b
   | Expression l ->

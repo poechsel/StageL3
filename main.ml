@@ -42,11 +42,36 @@ let lexbuf = Lexing.from_channel stdin
 
 let parse () = Parser.main Lexer.token lexbuf
 
+let arith expr = 
+  let [expr] = expr in 
+  let _ = print_endline "analysing expression" in
+  let _ =  print_endline @@ pretty_print_ast expr in
+  let expr = expand expr in
+  let _ =  print_endline @@ pretty_print_ast expr in
+  let expr = convert_ast_to_arithms expr ["i"; "j"] in
+  let _ = print_endline @@ pretty_print_arithm expr in
+  let expr = reorient expr ["i"; "j"] in
+  let _ = print_endline @@ pretty_print_arithm expr in
+
+  let expr = move_unop_sub expr  in
+  let _ = print_endline @@ pretty_print_arithm expr in
+
+  let results = get_coefficients expr ["i"; "j"] in
+  let _ = Hashtbl.iter (fun n c -> 
+      Printf.printf "%s : %s\n" n
+        (String.concat ", " (List.map pretty_print_arithm c))
+    ) results in
+  ()
+
 (* la fonction que l'on lance ci-dessous *)
 let calc () =
   let result = parse () in
+
+    arith result; flush stdout
+
+
   (* Expr.affiche_expr result; print_newline (); flush stdout *)
-  compile result; flush stdout
+  (*compile result; flush stdout*)
 ;;
 
 let _ = calc()
