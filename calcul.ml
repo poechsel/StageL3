@@ -143,6 +143,7 @@ let rec export_minus expr =
   | LUnop(UnOp.Sub, a) -> a
   | LMul l -> LMul(LUnop(UnOp.Sub, List.hd l) :: List.tl l)
   | LAdd l -> LAdd (List.map export_minus l)
+  | expr -> expr
 
 
 (* convert an ast to a new arithms form *)
@@ -193,6 +194,8 @@ let rec is_unop_chain expr =
   | LUnop (op, expr) -> is_unop_chain expr
   | _ -> None
 
+
+(* compare two arithmetics expressions *)
 let compare a b reserved =
   let _ = Printf.printf "%s <-> %s\n" (pretty_print_arithm a) (pretty_print_arithm b) in
   match (a, b) with
@@ -213,6 +216,8 @@ let compare a b reserved =
   | a, LC(Identifier (b, _)) when List.mem b reserved -> 1
   | _ -> 0
 
+
+(* reorient to put the reserved name near the front *)
 let rec reorient expr reserved =
   let aux x = reorient x reserved in 
   let compare a b = compare a b reserved in
@@ -248,30 +253,11 @@ let rec move_unop_sub expr =
 
 
 
-let rec reorient_ids expr loops_ids = 
-  match expr with
-  | BinaryOp(op, (Identifier (a, _) as a'), b) when List.mem a loops_ids ->
-    BinaryOp(op, reorient_ids b loops_ids, a')
-  | BinaryOp(op, a, b) ->
-    BinaryOp(op, reorient_ids a loops_ids, reorient_ids b loops_ids)
-  | UnaryOp(op, a) -> 
-    UnaryOp(op, reorient_ids a loops_ids)
-  | expr -> expr
-
-let rec check_constants expr constants = 
-  match expr with
-  | Identifier (name, _) ->
-    List.mem name constants
-  | Constant _ -> true
-  | BinaryOp(op, a, b) ->
-    check_constants a constants && check_constants b constants
-  | UnaryOp(op, a) ->
-    check_constants a constants
-  | _ -> false
 
 
 
-
+(* remove an identifier from a product:
+   a*b*c*i*d -> a*b*c*d *)
 let remove_ident_from_expr expr w = 
   let rec aux expr status =
     match expr with
@@ -286,6 +272,7 @@ let remove_ident_from_expr expr w =
   in aux expr false
 
 
+(* add a product of term to the list *)
 let add_hashmp tbl name x =
   let x = if x = LMul([]) then LMul([LC(Variables.one)]) else x in
   if Hashtbl.mem tbl name then
@@ -293,6 +280,7 @@ let add_hashmp tbl name x =
   else Hashtbl.add tbl name [x]
 
 
+(* finally get all the coefficients *)
 let get_coefficients expr reserved =
   let expr = match expr with
     | LAdd l -> 
@@ -317,3 +305,13 @@ let get_coefficients expr reserved =
   in tbl
 
 
+
+
+(* finally, do the magic *)
+let operate expr reserved =
+  let expr = expand expr in
+  let expr = convert_ast_to_arithms expr reserved in
+  let expr = reorient expr reserved in
+  let expr = move_unop_sub expr  in
+  let results = get_coefficients expr reserved in
+  results
