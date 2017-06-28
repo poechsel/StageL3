@@ -53,6 +53,7 @@ let arith expr =
   let expr = reorient expr ["i"; "j"] in
   let _ = print_endline @@ pretty_print_arithm expr in
 
+  let _ = print_endline "moving unop" in
   let expr = move_unop_sub expr  in
   let _ = print_endline @@ pretty_print_arithm expr in
 
