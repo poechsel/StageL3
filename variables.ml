@@ -98,6 +98,11 @@ let create_iterateur for_loop =
   | _ -> raise Not_found
 
 
+let pretty_print_iterator it = 
+  let (var_name, start, stop, (_, step)) = it
+  in Printf.sprintf "(%s %s %s %s)" var_name (pretty_print_ast start) (pretty_print_ast stop) (pretty_print_ast step)
+
+
 let rec detect_pure_for_loop program =
   let rec aux program = 
   match program with 
@@ -126,13 +131,14 @@ let add_variable tbl name forloop indices uuids level permission =
       let l', p'= Hashtbl.find tbl name in
       let rec aux l = match l with
         | [] -> [(permission, forloop, indices, uuids)]
-        | (p', f, i, u) :: tl when ((p' lor permission) land is_array != is_array) || (f == forloop && indices == i) ->
+        | (p', f, i, u) :: tl when ((p' lor permission) land is_array != is_array) || (f = forloop && indices = i) ->
           (permission lor p', f, i, u @ uuids) :: tl
         | x :: tl ->
           x :: aux tl
       in Hashtbl.replace tbl name (l', aux p')
     else
       Hashtbl.add tbl name (level, [permission, forloop, indices, uuids])
+
 
 let get_all_variables program = 
   let tbl = Hashtbl.create 0 in

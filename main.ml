@@ -11,11 +11,11 @@ let analyse e =
             match (p, f, i, uuid) with
             | p, [], [], _ ->
         Printf.printf "%s: %d, %s\n" name level (print_rw_flag p)
-            | p, _, l , _-> 
+            | p, f, l , _-> 
               let n = 
                 pretty_print_ast @@ List.fold_left (fun a b -> Ast.Access(Ast.Array, a, b)) (Ast.Identifier (name, 0)) l
               in 
-        Printf.printf "%s: %d, %s\n" n level (print_rw_flag p)
+        Printf.printf "%s: %d, %s it = %s\n" n level (print_rw_flag p) (__print_list pretty_print_iterator "," f)
           ) p) r
     in ()
 
@@ -68,11 +68,11 @@ let arith expr =
 let calc () =
   let result = parse () in
 
-    arith result; flush stdout
+(*    arith result; flush stdout *)
 
 
   (* Expr.affiche_expr result; print_newline (); flush stdout *)
-  (*compile result; flush stdout*)
+  compile result; flush stdout
 ;;
 
 let _ = calc()
