@@ -2,13 +2,14 @@ open Prettyprint
 open Constantpropagation
 open Calcul
 open Variables
+open Export
 
 
 let analyse e = 
     let r = get_all_variables e
     in let _ = Hashtbl.iter (fun name (level, p) -> 
         List.iter (fun (p, f, i, uuid) ->
-            match (p, f, i, uuid) with
+            match (p,  f, i, uuid) with
             | p, [], [], _ ->
         Printf.printf "%s: %d, %s\n" name level (print_rw_flag p)
             | p, f, l , _-> 
@@ -72,7 +73,22 @@ let calc () =
 
 
   (* Expr.affiche_expr result; print_newline (); flush stdout *)
-  compile result; flush stdout
+  (*compile result; *)
+  let its = [("i", 0, Ast.Break, Ast.Break, Ast.Break);
+                ("j", 1, Ast.Break, Ast.Break, Ast.Break)
+            ] in
+  let cm = build_corresponding_map its in
+  let [expr] = result in
+  let name = "name" in
+  let _ = Hashtbl.iter (fun a b -> Printf.printf "%s : %d\n" a b) cm in
+  let expr = replace_expression_it expr cm name in
+  let _ = print_endline @@ pretty_print_ast expr in
+  let expr =  generate_all_perm  name expr in
+  let _ = print_endline "generated: " in
+  let _ = List.iter (fun x -> print_endline @@ pretty_print_ast x) expr in
+  let _ = print_endline "===========" in
+  
+  flush stdout
 ;;
 
 let _ = calc()

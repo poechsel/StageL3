@@ -50,6 +50,7 @@ let unop_pure_for_loop op i =
   | _ -> false
 
 let one = Constant(CInt(Dec, Num.num_of_int 1, ""))
+let uuid_iterateur = ref 0
 
 (* return a triplet (i, start, end, step) if we have a pure for loop.
    i is an iterator going from start to end (included) by a step of step
@@ -93,13 +94,15 @@ let create_iterateur for_loop =
         | Assign(op, Identifier(x, uuid), b) when x = var_name ->
           (op, b)
         | _ -> failwith "wrong step"
-    in (var_name, start, stop, step)
+    in let temp = (var_name, !uuid_iterateur, start, stop, step)
+    in let _ = incr uuid_iterateur
+    in temp
 
   | _ -> raise Not_found
 
 
 let pretty_print_iterator it = 
-  let (var_name, start, stop, (_, step)) = it
+  let (var_name, _, start, stop, (_, step)) = it
   in Printf.sprintf "(%s %s %s %s)" var_name (pretty_print_ast start) (pretty_print_ast stop) (pretty_print_ast step)
 
 
