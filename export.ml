@@ -144,12 +144,11 @@ let rec generate_all_perm array_name expr =
 let generate_reduction_in_c expr indices_map name_ar target fct_name =
   let expr = replace_expression_it expr indices_map name_ar in
   let exprs = generate_all_perm name_ar expr in
-  let out = target ^ " = " ^ (pretty_print_ast @@ List.hd exprs) ^ ";\n" in
-  let out = out ^ (List.fold_left (fun a b ->
+  let out = (List.fold_left (fun a b ->
       a ^
       target ^ " = " ^ fct_name ^"("^ target ^ ", " ^ (pretty_print_ast @@ b) ^ ");\n")
       ""
-      (List.tl exprs) )
+      exprs)
 in
   print_string out
 
