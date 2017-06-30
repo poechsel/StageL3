@@ -200,7 +200,10 @@ let transform_code_par ast variables =
                       ()
                     else 
                       let _ = print_endline @@ "seeing " ^ name  ^ " id = " ^ (__print_list string_of_int "," uuids) in
-                      ast := Variables.rename !ast uuids (fun x -> Access(Member, x, Identifier(Variables.string_of_rw_flag permissions, 0)) )
+                      if permissions land Variables.is_array = Variables.is_array then
+                      ast := Variables.rename !ast uuids (function
+                          | Identifier(name, u) ->Access(Member, Identifier("s_"^name, u), Identifier(Variables.string_of_rw_flag permissions, 0))
+                          | e -> e)
                  )
                  p
        | _ -> ()
@@ -228,3 +231,34 @@ let compute_boundaries_in_c variables =
        end
     )
     variables
+
+
+(* missing here: we must copy structs entirely! *)
+let generate_transfer_in_openacc variables =
+  let tbl = Hashtbl.create 0 in
+  let add_directive flag name accessors =
+    let parts = List.mapi (fun i _ ->
+        let part = name ^ "_infos" ^"." ^ Variables.string_of_rw_flag flag in
+        part ^ ".min", part ^ ".max"
+      ) accessors
+    in
+    let spec = List.fold_left (fun a (b, b') -> a ^ "[" ^ b ^ ":" ^ b' ^ "]") "" parts in
+    if Hashtbl.mem tbl name then
+      ()
+    else Hashtbl.add tbl name ((Variables.openacc_dir_of_flag flag)^"("^name^spec ^")")
+  in 
+  let _ = Hashtbl.iter
+    (fun name (level, p) ->
+       if level != -1 then ()
+       else begin
+         List.iter (fun (permissions, iterators, accessors, _) ->
+             if permissions land Variables.is_function = Variables.is_function then
+               ()
+             else 
+               add_directive permissions name accessors
+           ) 
+           p
+       end
+    )
+    variables
+in Hashtbl.iter (fun a b -> print_endline b) tbl

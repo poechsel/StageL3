@@ -18,6 +18,14 @@ let string_of_rw_flag f =
   in let w = if f land write = write then "w" else ""
   in "f_" ^ r ^ w 
 
+let openacc_dir_of_flag f =
+  if f land (read lor write) = read lor write then
+    "pcopy"
+  else if f land read = read then
+    "pcopyin"
+  else 
+    "pcopyout"
+
 
 let binop_pure_for_loop binop i =
   match binop with
