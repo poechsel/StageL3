@@ -295,9 +295,9 @@ designator_list:
 
 designator:
     | LBRACKET constant_expression RBRACKET
-        { Access(Array, Identifier("", 0), $2) }
+        { Access(Array, Identifier("", -1), $2) }
     | DOT identifier
-        { Access(Member, Identifier("", 0), $2) }
+        { Access(Member, Identifier("", -1), $2) }
 
 storage_class_specifier:
     | TYPEDEF   { Typedef  }
@@ -403,7 +403,7 @@ declarator:
 
 direct_declarator:
     | IDENT
-        { ($1, 0), DeBasic }
+        { let _ = incr uuid in ($1, !uuid), DeBasic }
     | LPAREN declarator RPAREN
         { let id, pr, de = $2 in id, DeRecursive(pr, de)}
     | direct_declarator LBRACKET type_qualifier_list assignment_expression RBRACKET
@@ -469,7 +469,7 @@ parameter_declaration:
 
 abstract_declarator:
     | pointer
-        { ("", 0), $1, DeBasic }
+        { let _ = incr uuid in ("", !uuid), $1, DeBasic }
     | pointer direct_abstract_declarator
         { let a, b = $2 in a, $1, b }
     | direct_abstract_declarator
@@ -590,7 +590,7 @@ expression_statement:
     | expression ENDLINE
         { $1 }
     | ENDLINE 
-        { Identifier(";", 0)}
+        { Identifier(";", -1)}
 
 
 selection_statement:

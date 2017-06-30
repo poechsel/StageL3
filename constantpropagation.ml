@@ -22,9 +22,9 @@ module Env = struct
   let update_version env variable uuid =
               Env.add variable  (Identifier(variable, uuid)) env
 
-  let get_last env name = 
+  let get_last env name uuid = 
     if not (Env.mem name env) then
-      Identifier(name, -1)
+      Identifier(name, uuid)
     else 
         Env.find name env
 
@@ -69,7 +69,7 @@ let rec expand_expr expr env =
   let rec expand expr = 
     match expr with
     | Identifier(name, uuid) -> 
-      Env.get_last env name
+      Env.get_last env name uuid
     | UnaryOp(op, a) ->
       UnaryOp(op, expand expr)
     | BinaryOp(op, a, b) ->

@@ -13,6 +13,11 @@ let print_rw_flag f =
   in let u = if f land is_function = is_function then "function " else ""
   in r ^ w ^ a ^ u
 
+let string_of_rw_flag f = 
+  let r = if f land read = read then "r" else ""
+  in let w = if f land write = write then "w" else ""
+  in "f_" ^ r ^ w 
+
 
 let binop_pure_for_loop binop i =
   match binop with
@@ -121,7 +126,6 @@ let rec detect_pure_for_loop program =
     | For (Some(Declaration(_, [name, _, _, Some start_value])), Some (binop), Some (unop), content) 
       when unop_pure_for_loop unop name && binop_pure_for_loop binop name
       ->
-      print_endline "found";
       aux content
     | Bloc l ->
       List.iter aux l
@@ -149,15 +153,9 @@ let get_all_variables program =
   match program with
     | Identifier (";", _) | Identifier ("", _)  -> ()
     | Identifier(s, uuid) -> 
-      print_string "ident\n";
-      print_endline (pretty_print_ast program);
-      print_endline "";
       add_variable tbl s forloop_list indices_list (uuid :: uuids) (-1) permission
 
     | Declaration (_, l) ->
-      print_string "declaration\n";
-      print_endline (pretty_print_ast program);
-      print_endline "";
       List.iter (fun ((s, uuid), _, d, a) ->
           let f_a = match d with | DeArray _ -> is_array | DeFunction _ -> is_function | _ -> 0 in
           let _ = add_variable tbl s forloop_list indices_list (uuid :: uuids) level (permission lor f_a lor write)
@@ -227,9 +225,6 @@ let get_all_variables program =
       List.iter (aux forloop_list indices_list  uuids (level + 1) permission) l
 
     | FunctionDeclaration(_, (name, _, _), _, content) ->
-      print_string "fuction\n";
-      print_endline (pretty_print_ast program);
-      print_endline "";
       (* we should had the name, but laziness is the winner *)
       aux forloop_list indices_list  uuids level permission content
     | _ -> ()
@@ -238,3 +233,58 @@ let get_all_variables program =
 
   in let _ = List.iter (fun x -> aux [] [] [] 0 0 x) program 
   in tbl
+
+
+(* replace all identifier having an id in ids by expr *)
+let rec rename ast ids expr =
+  let rec treat_opt = function
+    | None -> None
+    | Some a -> Some (aux a)
+  and aux ast = match ast with
+    | Identifier(_, id) ->
+      if List.mem id ids then
+        expr ast
+      else 
+        ast
+    | BinaryOp(op, a, b) ->
+      BinaryOp(op, aux a, aux b)
+    | UnaryOp(op, a) ->
+      UnaryOp(op, aux a)
+    | InitializerList l ->
+      InitializerList (List.map aux l)
+    | Call(a, l) ->
+      Call(aux a, List.map aux l)
+    | Access(m, a, b) ->
+      Access(m, aux a, aux b)
+    | Cast (t, a) ->
+      Cast (t, aux a)
+    | Assign(op, a, b) ->
+      Assign(op, aux a, aux b)
+    | Expression l ->
+      Expression (List.map aux l)
+    | IfThenElse(c', a, b, c) ->
+      IfThenElse(c', aux a, aux b, aux c)
+    | Return a ->
+      Return (treat_opt a)
+    | For (a, b, c, d) ->
+      For (treat_opt a, treat_opt b, treat_opt c, aux d)
+    | Bloc l ->
+      Bloc (List.map aux l)
+    | Switch (a, b) ->
+      Switch (aux a, aux b)
+    | While (w, a, b) ->
+      While (w, aux a, aux b)
+    | Label(s, a) ->
+      Label(s, aux a)
+    | Case(a, b) ->
+      Case (aux a, aux b)
+    | Declaration(a, l) ->
+      Declaration(a, List.map (fun (b, c, d, e) ->
+        (b, c, d, treat_opt e)
+        ) l)
+    | Default(a) ->
+      Default(aux a)
+    | _ -> ast
+
+
+  in aux ast
