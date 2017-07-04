@@ -27,6 +27,15 @@ let openacc_dir_of_flag f =
     "pcopyout"
 
 
+let has_access variables name access = 
+  if Hashtbl.mem variables name then
+    let _, t = Hashtbl.find variables name in
+    List.exists (fun (permissions, _, _, _) ->
+      (permissions land access) = access
+      )
+      t
+  else false
+
 let binop_pure_for_loop binop i =
   match binop with
   | BinaryOp(op, Identifier(i, uuid), e)
@@ -130,8 +139,9 @@ let add_variable tbl name forloop indices uuids level permission =
       List.iter (aux forloop_list indices_list uuids  level permission) l
 
     | Access (Array, a, b) ->  begin
-        aux forloop_list (b::indices_list) uuids level (permission lor write lor is_array) a;
-        aux forloop_list indices_list uuids  level ((permission lor read) land lnot is_array) b;
+        aux forloop_list (b::indices_list) uuids level (permission lor is_array) a;
+        (*print_endline @@ "====> adding " ^ pretty_print_ast b ^ " with flah " ^ (print_rw_flag permission);*)
+        aux forloop_list indices_list uuids  level ((permission lor read) land lnot write land lnot is_array) b;
       end
 
     | UnaryOp(UnOp.PostDecr, a)
@@ -239,7 +249,14 @@ and create_iterateur for_loop =
     in let temp = (var_name, !uuid_iterateur, start, stop, step)
     in let _ = incr uuid_iterateur
     in let _ = 
-         let r = get_all_variables ([stmts]) in ()
+         (*let _ = print_endline "=============" in
+         let _ = print_endline @@ pretty_print_ast stmts in *)
+         let r = get_all_variables ([stmts]) in 
+           if has_access r var_name write then
+             let _ = print_endline "Not a pure loop"
+             in raise Not_found
+           else 
+           print_endline "Found for pure loop"
     in temp
 
   | _ -> raise Not_found

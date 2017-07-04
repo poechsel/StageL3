@@ -18,18 +18,18 @@ let analyse e =
               in 
               Printf.printf "%s: %d, %s it = %s \t[%s]\n" n level (print_rw_flag p) (__print_list pretty_print_iterator "," f) (__print_list string_of_int "," uuid)
           ) p) r
+        
     in let _ = List.iter (fun x -> print_endline @@ pretty_print_iterator x) (get_iterators_from_variables r)
-    in let _ = create_iterators_in_c r
-    in let _ = compute_boundaries_in_c r
+    (*in let _ = create_iterators_in_c r*)
+    (* in let _ = compute_boundaries_in_c r *)
     in let e = Ast.Bloc(e)
-    in let ast = transform_code_par e r 
-    in let _ = print_endline @@ pretty_print_ast ast
+    (*in let ast = transform_code_par e r *)
+    (*in let _ = print_endline @@ pretty_print_ast ast*)
     in let _ = generate_transfer_in_openacc r
     in ()
 
 let compile e =
   begin
-    pretty_print e;
 (*    let r = get_all_variables e
     in let _ = Hashtbl.iter (fun name (level, p) -> Printf.printf "%s: %d, %s\n" name level (print_rw_flag p)) r
     in let _ = print_endline "nex======="
@@ -80,11 +80,20 @@ let calc () =
 
 
   (* Expr.affiche_expr result; print_newline (); flush stdout *)
-  compile result; 
+  compile result;(* 
   let its = [("i", 0, Ast.Break, Ast.Break, Ast.Break);
                 ("j", 1, Ast.Break, Ast.Break, Ast.Break)
             ] in
   let cm = build_corresponding_map its in
+let [expr] = result in
+  let r = operate expr ["i"; "j"] in
+  let _ = Hashtbl.iter (fun name l ->
+      print_endline name;
+      List.iter (fun x -> print_endline @@ "  " ^ pretty_print_arithm x ) l
+    ) r
+      in*)
+
+
   (*
   let [expr] = result in
   let name = "name" in
@@ -95,7 +104,7 @@ let calc () =
   let _ = print_endline "generated: " in
   let _ = List.iter (fun x -> print_endline @@ pretty_print_ast x) expr in
   let _ = print_endline "===========" in
-  *)let [expr] = result in
+  *)
   (*let _ = generate_min_in_c expr cm "array" "foo" "min" in
   *)
   flush stdout

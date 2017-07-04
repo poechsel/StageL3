@@ -65,7 +65,6 @@ let rec is_expr_propagatable expr =
   | _ -> false
 
 let rec expand_expr expr env =
-    let _ = print_endline @@ pretty_print_ast expr in
   let rec expand expr = 
     match expr with
     | Identifier(name, uuid) -> 
@@ -90,7 +89,6 @@ let constant_propagation expr =
   let rec update_list l env = match l with
     | [] -> [], env
     | x::tl ->
-      let _ = Printf.printf "iterating over %s\n" (pretty_print_ast x) in
       let x', env = propagate x env
       in let l, env = update_list tl env in  x'::l, env
 

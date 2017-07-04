@@ -197,12 +197,11 @@ let rec is_unop_chain expr =
 
 (* compare two arithmetics expressions *)
 let compare a b reserved =
-  let _ = Printf.printf "%s <-> %s\n" (pretty_print_arithm a) (pretty_print_arithm b) in
   match (a, b) with
   | LUnop(op, expr), b ->
     let temp = is_unop_chain expr in
     begin match temp with 
-      | Some a when List.mem a reserved -> print_string "yes"; -1
+      | Some a when List.mem a reserved -> -1
       | _ -> 0
     end
   | a, LUnop(op, expr) ->
@@ -237,8 +236,8 @@ let rec move_unop_sub expr =
     | [] -> []
     | LUnop(UnOp.Sub, LUnop(UnOp.Sub, a)) :: l -> aux (a :: l)
     | LUnop(UnOp.Sub, a) :: n :: l -> a :: aux (LUnop(UnOp.Sub, n) :: l)
-    | LUnop(UnOp.Sub, a) :: [] ->print_endline "problem" ; [a; LUnop(UnOp.Sub, LC(Variables.one))]
-    | x :: l -> print_endline "problem" ; x :: aux l
+    | LUnop(UnOp.Sub, a) :: [] -> [a; LUnop(UnOp.Sub, LC(Variables.one))]
+    | x :: l -> x :: aux l
   in
   match expr with
   | LMul l ->
