@@ -23,9 +23,10 @@ let rec expr_get_id_list expr =
 
 
 let iterators_compare (_, a, _, _, _) (_, b, _, _, _) =
-  if a < b then 1
+  let _ = Printf.printf "%d\n%d\n" a b in
+  if a < b then -1
   else if a = b then 0
-  else -1
+  else 1
 
 
 (* return a list of iterators from the variables *)
@@ -153,20 +154,58 @@ in
   print_string out
 
 
+
+(* convert a expression in  the form returned by operator (list of arithm) 
+   and return a tuple (min, max) 
+    restricted is a map indices -> expression_min, expression_max
+
+
+*)
+
+let hashtbl_keys tbl = 
+  let l = Hashtbl.fold (fun key _ p -> key :: p) tbl []
+  in List.sort_uniq Pervasives.compare l
+
+
+let expression_to_c expression restricted =
+  let l, l' = Hashtbl.fold (
+    fun name l (expr_m, expr_M)  ->
+      if l = [] then (expr_m, expr_M)
+      else
+        let a = __print_list Calcul.pretty_print_arithm "+" l in
+        let mi, ma = 
+          if name = "" then (a, a)
+          else 
+            let l = a ^ "*" ^ fst @@ Hashtbl.find restricted name in
+            let h = a ^ "*" ^ snd @@ Hashtbl.find restricted name in
+            let mi = "min(" ^ l ^ ", " ^ h ^ ")" in
+            let ma = "max(" ^ l ^ ", " ^ h ^ ")" in
+            mi, ma
+        in
+        (mi::expr_m, ma::expr_M)
+  ) expression ([], [])
+  in __print_list (fun x -> x) " + " l, __print_list (fun x -> x) " + " l'
+
+
 let create_iterators_in_c variables =
-    let iterators = get_iterators_from_variables variables in
-    let cm = build_corresponding_map iterators in
-    let _ = Printf.printf "s_iterators it_list[%d];\n" (Hashtbl.length cm) in
-    let _ = List.iter (fun ((name, uuid, s, t, _) as it) ->
-        let _ = print_endline "{" in
-        let target = "it_list[" ^ string_of_int uuid ^ "]" in
-        let _ = generate_reduction_in_c s cm "it_list" (target ^ ".start") "min" in
-        let _ = generate_reduction_in_c t cm "it_list" (target ^ ".stop") "max" in
-        let _ = Printf.printf "int __temp = %s.start;\nif (__temp > %s.stop) {%s.start = %s.stop; %s.stop = __temp;}\n" target target target target target
-        in print_endline "}"
-      )
-        iterators
-    in ()
+  let iterators = get_iterators_from_variables variables in
+  let cm = build_corresponding_map iterators in
+  let its = Hashtbl.create (List.length iterators) in
+  let _ = List.iter 
+      (fun (name, uuid, _, _, _) ->
+         let base = "it_list[" ^ string_of_int uuid ^ "]" in
+         Hashtbl.add its name (base ^ ".min", base ^ ".max")
+      ) iterators in
+  let its_list =  hashtbl_keys its in
+  let _ = Printf.printf "s_iterators it_list[%d];\n" (Hashtbl.length cm) in
+  let _ = List.iter (fun ((name, uuid, start, stop, _)) ->
+      let start = Calcul.operate start its_list in
+      let stop = Calcul.operate stop its_list in
+      let target = "it_list[" ^ string_of_int uuid ^ "]" in
+      let _ = Printf.printf "it_list[%d].min = %s;\n" uuid @@ fst @@ expression_to_c start its in
+      Printf.printf "it_list[%d].max = %s;\n" uuid @@ snd @@ expression_to_c stop its 
+    ) iterators
+  in ()
 
 
 

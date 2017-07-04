@@ -186,6 +186,7 @@ let add_variable tbl name forloop indices uuids level permission =
       f a; f b; f c; 
       begin try
           let i = create_iterateur (For(a, b, c, d))
+              (*TODO move content pure loop for index rewriting here *)
           in  aux (i::forloop_list) indices_list  uuids level permission d
         with Not_found ->
       aux forloop_list indices_list  uuids level permission d
@@ -251,11 +252,11 @@ and create_iterateur for_loop =
     in let _ = 
          (*let _ = print_endline "=============" in
          let _ = print_endline @@ pretty_print_ast stmts in *)
-         let r = get_all_variables ([stmts]) in 
+         (*let r = get_all_variables ([stmts]) in 
            if has_access r var_name write then
              let _ = print_endline "Not a pure loop"
              in raise Not_found
-           else 
+           else *)
            print_endline "Found for pure loop"
     in temp
 
