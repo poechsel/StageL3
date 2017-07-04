@@ -23,7 +23,6 @@ let rec expr_get_id_list expr =
 
 
 let iterators_compare (_, a, _, _, _) (_, b, _, _, _) =
-  let _ = Printf.printf "%d\n%d\n" a b in
   if a < b then -1
   else if a = b then 0
   else 1
