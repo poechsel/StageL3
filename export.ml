@@ -247,20 +247,58 @@ let transform_code_par ast variables =
        | _ -> ()
     ) variables
 in !ast
-
+(*
+let create_iterators_in_c variables =
+  let iterators = get_iterators_from_variables variables in
+  let cm = build_corresponding_map iterators in
+  let its = Hashtbl.create (List.length iterators) in
+  let _ = List.iter 
+      (fun (name, uuid, _, _, _) ->
+         let base = "it_list[" ^ string_of_int uuid ^ "]" in
+         Hashtbl.add its name (base ^ ".min", base ^ ".max")
+      ) iterators in
+  let its_list =  hashtbl_keys its in
+  let _ = Printf.printf "s_iterators it_list[%d];\n" (Hashtbl.length cm) in
+  let _ = List.iter (fun ((name, uuid, start, stop, _)) ->
+      let start = Calcul.operate start its_list in
+      let stop = Calcul.operate stop its_list in
+      let target = "it_list[" ^ string_of_int uuid ^ "]" in
+      let _ = Printf.printf "it_list[%d].min = %s;\n" uuid @@ fst @@ expression_to_c start its in
+      Printf.printf "it_list[%d].max = %s;\n" uuid @@ snd @@ expression_to_c stop its 
+    ) iterators
+  in ()
+     *)
 
 let compute_boundaries_in_c variables =
   Hashtbl.iter
     (fun name (level, p) ->
+       let first_iteration = Hashtbl.create 3 in
        if level != -1 then ()
        else begin
          List.iter (fun (permissions, iterators, accessors, _) ->
              let cm = build_corresponding_map iterators in
-             let name_struct = name ^ "_infos" ^ "." ^ Variables.string_of_rw_flag permissions in
+             let its = Hashtbl.create (List.length iterators) in
+             let _ = List.iter 
+                 (fun (name, uuid, _, _, _) ->
+                    let base = "it_list[" ^ string_of_int uuid ^ "]" in
+                    Hashtbl.add its name (base ^ ".min", base ^ ".max")
+                 ) iterators in
+             let its_list = List.map (fun (name, _, _, _, _) -> name) iterators in
+             let flag = Variables.string_of_rw_flag permissions in 
+             let name_struct = name ^ "_infos" ^ "." ^ flag in
              List.iteri (fun i access ->
                  let _ = print_endline "{" in
-                let _ = generate_reduction_in_c access cm "it_list" (name_struct ^ ".min") "min" in
-                let _ = generate_reduction_in_c access cm "it_list" (name_struct ^ ".max") "max" in
+                 let small, huge = expression_to_c (Calcul.operate access its_list) its in
+                 let _ = Printf.printf "int ___a = %s;\n" @@ small in
+                 let _ = Printf.printf "int ___b = %s;\n" @@ huge in
+                 let _ = if not (Hashtbl.mem first_iteration flag) then
+                 let _ = Printf.printf "%s.min = min(___a, ___b);\n" name_struct in
+                 let _ = Printf.printf "%s.max = max(___a, ___b);\n" name_struct in
+                 Hashtbl.add first_iteration flag true
+                 else
+                 let _ = Printf.printf "%s.min = min(%s.min, min(___a, ___b));\n" name_struct name_struct in
+                  Printf.printf "%s.max = max(%s.max, max(___a, ___b));\n" name_struct name_struct in
+
                  print_endline "}" 
                )
                accessors

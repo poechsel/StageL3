@@ -21,7 +21,8 @@ let analyse e =
         
     in let _ = List.iter (fun x -> print_endline @@ pretty_print_iterator x) (get_iterators_from_variables r)
     in let _ = create_iterators_in_c r
-    (* in let _ = compute_boundaries_in_c r *)
+    in let _ = print_endline "\nBOUNDARIES:"
+    in let _ = compute_boundaries_in_c r 
     in let e = Ast.Bloc(e)
     (*in let ast = transform_code_par e r *)
     (*in let _ = print_endline @@ pretty_print_ast ast*)
