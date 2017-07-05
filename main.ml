@@ -24,8 +24,8 @@ let analyse e =
     in let _ = print_endline "\nBOUNDARIES:"
     in let _ = compute_boundaries_in_c r 
     in let e = Ast.Bloc(e)
-    (*in let ast = transform_code_par e r *)
-    (*in let _ = print_endline @@ pretty_print_ast ast*)
+    in let ast = transform_code_par e r 
+    in let _ = print_endline @@ pretty_print_ast ast
     in let _ = generate_transfer_in_openacc r
     in ()
 
