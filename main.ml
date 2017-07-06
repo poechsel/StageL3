@@ -2,12 +2,11 @@ open Prettyprint
 open Constantpropagation
 open Calcul
 open Variables
-open Export
 
 
-let analyse ast ast_expanded = 
-    let r = get_all_variables ast_expanded
-    in let _ = Hashtbl.iter (fun name (level, p) -> 
+
+let debug_access r = 
+    Hashtbl.iter (fun name (level, p) -> 
         List.iter (fun (p, f, i, uuid) ->
             match (p,  f, i, uuid) with
             | p, [], [], _ ->
@@ -18,14 +17,17 @@ let analyse ast ast_expanded =
               in 
               Printf.printf "%s: %d, %s it = %s \t[%s]\n" n level (print_rw_flag p) (__print_list pretty_print_iterator "," f) (__print_list string_of_int "," uuid)
           ) p) r
-        
-    in let _ = List.iter (fun x -> print_endline @@ pretty_print_iterator x) (get_iterators_from_variables r)
-    in let _ = create_iterators_in_c r
+
+let analyse ast ast_expanded = 
+    let var_access = get_all_variables ast_expanded
+    in let _ = debug_access var_access
+    in let _ = List.iter (fun x -> print_endline @@ pretty_print_iterator x) (Generatecode.get_iterators_from_variables var_access)
+    in let _ = Generatecode.create_iterators_in_c var_access
     in let _ = print_endline "\nBOUNDARIES:"
-    in let _ = compute_boundaries_in_c r 
-    in let ast = transform_code_par ast r 
+    in let _ = Generatecode.compute_boundaries_in_c var_access
+    in let ast = Generatecode.transform_code_par ast var_access
     in let _ = print_endline @@ pretty_print_ast ast
-    in let _ = generate_transfer_in_openacc r
+    in let _ = Generatecode.generate_transfer_in_openacc var_access
     in ()
 
 let compile ast =

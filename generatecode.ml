@@ -8,7 +8,14 @@ let iterators_compare (_, a, _, _, _) (_, b, _, _, _) =
   else 1
 
 
-(* return a list of iterators from the variables *)
+(* return a list of iterators from the variables 
+
+   Summary:
+   iterate over every variables and concat the iterators
+   Then, with sort_uniq it will erase distinct iterators
+
+   Iterators are identified by their uuids, not their name!
+*)
 let get_iterators_from_variables variables = 
   let a = Hashtbl.fold 
     (fun name (_, p) prev ->
@@ -26,50 +33,57 @@ let get_iterators_from_variables variables =
 
 
 
-let build_corresponding_map its =
-  let tbl = Hashtbl.create 0 in
-  let _ = List.iter (fun (name, uuid, _, _, _) ->
-    Hashtbl.add tbl name uuid
-    ) its in
-  tbl
 
 
 
-(* convert a expression in  the form returned by operator (list of arithm) 
-   and return a tuple (min, max) 
-    restricted is a map indices -> expression_min, expression_max
-
-
+(*
+Return the keys of an hashtbl
 *)
-
 let hashtbl_keys tbl = 
   let l = Hashtbl.fold (fun key _ p -> key :: p) tbl []
   in List.sort_uniq Pervasives.compare l
 
 
+(*
+   Given an expression, return two strings representing an expression
+   giving an upper bound and an lower bound of it.
+   It work because the expressions are linear polynoms.
+
+   Expression is given in the form outputted by the formal calculus, as an:
+   Hashmap of unknown (an iterator name) -> list of products
+   Therefore, an expression is given as:
+   sum (iterator_value * (sum of content of the hashtbl))
+
+   restricted is an hashmap affecting to an iterator name a tuple
+   (str_min, str_max) where str_min is a string referencing to the min value of 
+   the iterator and str_max to the max value
+*)
 let expression_to_c expression restricted =
-  let l, l' = Hashtbl.fold (
-    fun name l (expr_m, expr_M)  ->
-      if l = [] then (expr_m, expr_M)
-      else
-        let a = __print_list Calcul.pretty_print_arithm "+" l in
-        let mi, ma = 
-          if name = "" then (a, a)
-          else 
-            let l = a ^ "*" ^ fst @@ Hashtbl.find restricted name in
-            let h = a ^ "*" ^ snd @@ Hashtbl.find restricted name in
-            let mi = "min(" ^ l ^ ", " ^ h ^ ")" in
-            let ma = "max(" ^ l ^ ", " ^ h ^ ")" in
-            mi, ma
-        in
-        (mi::expr_m, ma::expr_M)
-  ) expression ([], [])
-  in __print_list (fun x -> x) " + " l, __print_list (fun x -> x) " + " l'
+  let l_min, l_max = Hashtbl.fold (
+      fun name l (expr_m, expr_M)  ->
+        if l = [] then (expr_m, expr_M)
+        else
+          (* first, sum the parts of the computation *)
+          let a = __print_list Calcul.pretty_print_arithm "+" l in
+          (* get the min and the max of this simple term *)
+          let mi, ma = 
+            if name = "" then (a, a)
+            else 
+              let l = a ^ "*" ^ fst @@ Hashtbl.find restricted name in
+              let h = a ^ "*" ^ snd @@ Hashtbl.find restricted name in
+              let mi = "min(" ^ l ^ ", " ^ h ^ ")" in
+              let ma = "max(" ^ l ^ ", " ^ h ^ ")" in
+              mi, ma
+          in
+          (mi::expr_m, ma::expr_M)
+    ) expression ([], [])
+  (* finally, concat all parts *)
+  in __print_list (fun x -> x) " + " l_min, 
+     __print_list (fun x -> x) " + " l_max
 
 
 let create_iterators_in_c variables =
   let iterators = get_iterators_from_variables variables in
-  let cm = build_corresponding_map iterators in
   let its = Hashtbl.create (List.length iterators) in
   let _ = List.iter 
       (fun (name, uuid, _, _, _) ->
@@ -77,7 +91,7 @@ let create_iterators_in_c variables =
          Hashtbl.add its name (base ^ ".min", base ^ ".max")
       ) iterators in
   let its_list =  hashtbl_keys its in
-  let _ = Printf.printf "s_iterators it_list[%d];\n" (Hashtbl.length cm) in
+  let _ = Printf.printf "s_iterators it_list[%d];\n" (List.length iterators) in
   let _ = List.iter (fun ((name, uuid, start, stop, _)) ->
       let start = Calcul.operate start its_list in
       let stop = Calcul.operate stop its_list in
