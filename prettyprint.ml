@@ -8,7 +8,7 @@ let __print_list fct sep l =
 
 let rec pretty_print_ast ast = 
   match ast with
-  | Identifier (s, u) -> s(*)"["^s^"="^string_of_int u^"]#"*)
+  | Identifier (s, u) -> s (*"["^s^"="^string_of_int u^"]#"*)
   | InitializerList l -> 
     "{" ^ 
     if l = [] then "" 

@@ -268,7 +268,7 @@ and get_all_variables program =
   let tbl = Hashtbl.create 0 in
 
 
-   let _ = List.iter (fun x -> aux tbl [] [] [] 0 0 x) program 
+   let _ = aux tbl [] [] [] 0 0 program 
   in tbl
 
 
