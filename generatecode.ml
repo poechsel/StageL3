@@ -2,6 +2,10 @@ open Ast
 open Prettyprint
 
 
+
+(* compare to given iterators. 
+   We compare them thanks to their uuid
+*)
 let iterators_compare (_, a, _, _, _) (_, b, _, _, _) =
   if a < b then -1
   else if a = b then 0
@@ -28,12 +32,6 @@ let get_iterators_from_variables variables =
     variables
     []
   in List.sort_uniq iterators_compare a
-
-
-
-
-
-
 
 
 (*
@@ -82,17 +80,28 @@ let expression_to_c expression restricted =
      __print_list (fun x -> x) " + " l_max
 
 
+
+(*
+    Given all the variables, generate the code which will compute
+   the bounds for the various iterators
+*)
 let create_iterators_in_c variables =
   let iterators = get_iterators_from_variables variables in
-  let its = Hashtbl.create (List.length iterators) in
-  let _ = List.iter 
-      (fun (name, uuid, _, _, _) ->
-         let base = "it_list[" ^ string_of_int uuid ^ "]" in
-         Hashtbl.add its name (base ^ ".min", base ^ ".max")
-      ) iterators in
-  let its_list =  hashtbl_keys its in
+  (* first, we build a data structure associating to each iterator 
+     the variables where the upper bound and lower bound
+     must be *)
   let _ = Printf.printf "s_iterators it_list[%d];\n" (List.length iterators) in
-  let _ = List.iter (fun ((name, uuid, start, stop, _)) ->
+  let _ = List.iter (fun (name, uuid, start, stop, _) ->
+      let its = Hashtbl.create (List.length iterators) in
+      let _ = List.iter 
+          (fun (name', uuid', _, _, _) ->
+             if uuid' < uuid then 
+             let base = "it_list[" ^ string_of_int uuid' ^ "]" in
+             Hashtbl.add its name' (base ^ ".min", base ^ ".max")
+               else
+                 ()
+          ) iterators in
+      let its_list =  hashtbl_keys its in
       let start = Calcul.operate start its_list in
       let stop = Calcul.operate stop its_list in
       let target = "it_list[" ^ string_of_int uuid ^ "]" in
