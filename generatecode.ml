@@ -80,6 +80,17 @@ let expression_to_c expression restricted =
      __print_list (fun x -> x) " + " l_max
 
 
+let create_it_hashmap ?(filter = fun x -> true) iterators =
+      let its = Hashtbl.create (List.length iterators) in
+      let _ = List.iter 
+          (fun (name', uuid', _, _, _) ->
+             if filter uuid' then 
+             let base = "it_list[" ^ string_of_int uuid' ^ "]" in
+             Hashtbl.add its name' (base ^ ".min", base ^ ".max")
+               else
+                 ()
+          ) iterators in
+      its
 
 (*
     Given all the variables, generate the code which will compute
@@ -87,20 +98,11 @@ let expression_to_c expression restricted =
 *)
 let create_iterators_in_c variables =
   let iterators = get_iterators_from_variables variables in
-  (* first, we build a data structure associating to each iterator 
-     the variables where the upper bound and lower bound
-     must be *)
+
   let _ = Printf.printf "s_iterators it_list[%d];\n" (List.length iterators) in
   let _ = List.iter (fun (name, uuid, start, stop, _) ->
-      let its = Hashtbl.create (List.length iterators) in
-      let _ = List.iter 
-          (fun (name', uuid', _, _, _) ->
-             if uuid' < uuid then 
-             let base = "it_list[" ^ string_of_int uuid' ^ "]" in
-             Hashtbl.add its name' (base ^ ".min", base ^ ".max")
-               else
-                 ()
-          ) iterators in
+      let its = create_it_hashmap iterators ~filter: (fun uuid' -> uuid' < uuid)
+          in
       let its_list =  hashtbl_keys its in
       let start = Calcul.operate start its_list in
       let stop = Calcul.operate stop its_list in
@@ -110,26 +112,6 @@ let create_iterators_in_c variables =
     ) iterators
   in ()
 
-
-
-let replace_iterators expr it_list = 
-  let rec aux expr =
-    match expr with
-    | Access(Array, a, w) ->
-      Access(Array, aux a, aux w)
-    | Identifier (name, _) ->
-      if List.exists (fun (n, _, _, _, _) -> n = name) it_list then
-        let _, uuid, _, _, _ = List.find (fun (n, _,_, _, _) -> n = name) it_list in
-        Access(Array, Identifier("it_list", 0), Constant(CInt(Dec, Num.num_of_int uuid, "")))
-      else expr
-    | BinaryOp(op, a, b) ->
-      BinaryOp(op, aux a, aux b)
-    | Call(w, l) -> 
-      Call(w, List.map aux l)
-    | UnaryOp(op, a) ->
-      UnaryOp(op, aux a)
-    | _ -> expr
-  in aux expr
 
 
 let transform_code_par ast variables =
@@ -159,12 +141,7 @@ let compute_boundaries_in_c variables =
        if level != -1 then ()
        else begin
          List.iter (fun (permissions, iterators, accessors, _) ->
-             let its = Hashtbl.create (List.length iterators) in
-             let _ = List.iter 
-                 (fun (name, uuid, _, _, _) ->
-                    let base = "it_list[" ^ string_of_int uuid ^ "]" in
-                    Hashtbl.add its name (base ^ ".min", base ^ ".max")
-                 ) iterators in
+             let its = create_it_hashmap iterators in
              let its_list = List.map (fun (name, _, _, _, _) -> name) iterators in
              let flag = Variables.string_of_rw_flag permissions in 
              let name_struct = name ^ "_infos" ^ "." ^ flag in
