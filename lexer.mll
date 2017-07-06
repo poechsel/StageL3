@@ -55,8 +55,8 @@ let character_constant = "L"? "'" c_char_sequence "'"
 
 
 (*** string litteral ***)
-let s_char_sequence = [^ '"' '\\' '\n']+
-let string_litteral = "L"? "\"" s_char_sequence "\""
+let s_char_sequence = [^ '"'  ]+
+let string_litteral = "L"? '"' s_char_sequence '"'
 
 
 

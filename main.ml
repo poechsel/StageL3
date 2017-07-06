@@ -37,7 +37,7 @@ let compile e =
     in*) let e = (constant_propagation (Ast.Bloc e)) in
     let Ast.Bloc e  = e in
     let _ = pretty_print e
-    in analyse e
+    in ()
     (*in detect_pure_for_loop e*)
   end
 

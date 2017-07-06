@@ -31,6 +31,12 @@ module Env = struct
   let add_binding env name expr = 
     Env.add name  expr env
 
+  let rec merge_postincr env postincrs = 
+      match postincrs with
+      | [] -> env
+      | (x, which) :: l -> 
+        let env = add_binding env x (BinaryOp(which, get_last env x (-1), Variables.one))
+        in merge_postincr env l
 
   (* remove vars that are in env' but not in env*)
   let restrict env' env = 
@@ -46,6 +52,7 @@ module Env = struct
       env env'
 
 end
+
 
 let rec is_expr_propagatable expr = 
   match expr with
@@ -85,164 +92,129 @@ let rec expand_expr expr env =
 
 let constant_propagation expr = 
   let env = Env.empty in
-
-  let rec update_list l env = match l with
-    | [] -> [], env
-    | x::tl ->
-      let x', env = propagate x env
-      in let l, env = update_list tl env in  x'::l, env
-
-
-  and transform expr env name uuid = 
-    if is_expr_propagatable expr then 
-      let expr, env = propagate expr env in
-      let env = Env.update_version env name uuid in
-      expr, Env.add_binding env name expr 
-    else 
-      expr, Env.update_version env name uuid
-
-  and propagate expr env =
+  let rec propagate env expr =
     match expr with
-    | Identifier _ ->
-      expand_expr expr env, env 
-    | Access (a, what, where) ->
-      let w, env = propagate where env in
-      let what, env = propagate what env in
-      Access(a, what, w), env
+    | Assign(BinOp.Empty, a, b) ->
+      let b', env' = propagate env b in
+      begin
+        match a with
+          | Identifier (name, _) ->
+            let env' = Env.add_binding env' name b' in
+            Assign(BinOp.Empty, a, b'), env'
+          | _ -> 
+            let _ = Printf.printf "Didn't knew what to do with %s = ...\n" (pretty_print_ast a) in
+            Assign(BinOp.Empty, a, b'), env'
+            end
+    
+    | Identifier (name, uuid) ->
+      Env.get_last env name uuid, env
+
+    | Constant c ->
+      Constant c, env
+
+    | BinaryOp(op, a, b) ->
+      let a, env = propagate env a in
+      let b, env = propagate env b in
+      let out = BinaryOp(op, a, b) in
+      out, env
+
+    | Call(what, l) ->
+      let rec analyse l env =
+        match l with
+        | [] -> [], env
+        | x :: l ->
+          let x', env' = propagate env x in
+          let l', env' = analyse l env' in
+          (x'::l'), env'
+      in let l, env = analyse l env in
+      Call (what, l), env
+    | Bloc l ->
+      let rec analyse l env =
+        match l with
+        | [] -> [], env
+        | x :: l ->
+          let x', env' = propagate env x in
+          let l', env' = analyse l env' in
+          (x'::l'), env'
+      in let l, env = analyse l env in
+      Bloc l, env
+
+    | Declaration (type_name, l) ->
+      let rec analyse l env =
+        match l with
+        | [] -> [], env
+        | ((name, uuid), declspec, decl, ast) :: l ->
+          let ast, env = match ast with
+            | None -> None, env
+            | Some x ->
+                  let x', env' = propagate env x in
+                  let env' = Env.add_binding env' name x' in
+                Some x', env'
+                in
+          let l', env' = analyse l env in
+          ((name, uuid), declspec, decl, ast)::l', env'
+      in let l, env = analyse l env in
+      Declaration (type_name, l), env
+
+      
+
+    | UnaryOp (UnOp.PostIncr, a) ->
+      begin
+      match a with
+      | Identifier (name, _) ->
+        let a, env = propagate env a in
+        let _ = print_endline @@ pretty_print_ast a in
+        let a' = BinaryOp(BinOp.Add, a, Variables.one) in
+        let env = Env.add_binding env name a' in
+        a, env
+      | _ ->
+        failwith "didn't knew you could postincr dat"
+          end
+    | UnaryOp (UnOp.PostDecr, a) ->
+      begin
+      match a with
+      | Identifier (name, _) ->
+        let a, env = propagate env a in
+        let a' = BinaryOp(BinOp.Sub, a, Variables.one) in
+        let env = Env.add_binding env name a' in
+        a, env
+      | _ ->
+        failwith "didn't knew you could postincr dat"
+          end
+    | UnaryOp (UnOp.PreIncr, a) ->
+      begin
+      match a with
+      | Identifier (name, uuid) ->
+        let a, env = propagate env a in
+        let a = BinaryOp(BinOp.Add, a, Variables.one) in
+        let env = Env.add_binding env name a in
+        a, env
+      | _ ->
+        failwith "didn't knew you could preincr dat"
+          end
+    | UnaryOp (UnOp.PostDecr, a) ->
+      begin
+      match a with
+      | Identifier (name, uuid) ->
+        let a, env = propagate env a in
+        let a = BinaryOp(BinOp.Sub, a, Variables.one) in
+        let env = Env.add_binding env name a in
+        a, env
+      | _ ->
+        failwith "didn't knew you could preincr dat"
+          end
+
+    | UnaryOp (op, a) ->
+      let a, env = propagate env a in
+      UnaryOp(op, a), env
+
+
+    | String s ->
+      String s, env
 
     
 
-    | Assign(BinOp.Empty, Access(t, a, where), expr) ->
-      (* do not enregister the modification in the env for these access 
-         otherwise it will bug, like in A[iozer] = 897; int b= A;
-         when registering, it becomes A[..] = 987; int b = 987*)
-      let expr, env =  propagate expr env  in
-      let where, env = propagate where env in
-      let a, _ = propagate a env in 
-      Assign(BinOp.Empty, Access(t, a, where), expr), env
-
-    | Assign(BinOp.Empty, (Identifier(name, uuid) as a), expr) ->
-      let expr, env = transform expr env name  uuid in 
-      Assign(BinOp.Empty, a, expr), env
-
-    | Assign(op, (Access _ as a), expr) 
-    | Assign(op, (Identifier _ as a), expr) ->
-      propagate (Assign(BinOp.Empty, a, BinaryOp(op, a, expr))) env
 
 
-    | UnaryOp(UnOp.PreIncr, Identifier(name, uuid))
-    | UnaryOp(UnOp.PreDecr, Identifier(name, uuid)) 
-    | UnaryOp(UnOp.PostDecr, Identifier(name, uuid)) 
-    | UnaryOp(UnOp.PostIncr, Identifier(name, uuid)) ->
-      expr, Env.update_version env name uuid
-
-    | UnaryOp _ when is_expr_propagatable expr ->
-      expand_expr expr env, env
-
-   | UnaryOp(op, a) ->
-      (*let  a, env = propagate a env in
-       *) UnaryOp(op, a), env
-   
-        
-    | BinaryOp _ when is_expr_propagatable expr ->
-      expand_expr expr env, env
-    | BinaryOp(op, a, b) ->
-    (*  let  a, env = propagate a env in
-      let  b, env = propagate b env in
-    *)    BinaryOp(op, a, b), env
-
-(*
-    | Label(a, b) ->
-      let b, env = propagate b env in
-      Label(a, b), env
-    | Case b ->
-      let b, env = propagate b env in
-      Case b, env
-      *)
-    | IfThenElse(a, cond, s_if, s_else) ->
-      let cond, env = propagate cond env in
-      let s_if, env' = propagate s_if env in
-      let s_else, env'' = propagate s_else env in
-
-      let env' = Env.restrict env' env in
-      let env'' = Env.restrict env'' env in
-      let env = Env.unify env' env'' in
-      IfThenElse(a, cond, s_if, s_else), env
-
-    | For(a, b, c, content) ->
-      let aux env = function
-        | None -> None, env
-        | Some x -> let x, env = propagate x env in Some x, env
-      in
-      (*let a, env = aux env a in
-      let b, env = aux env b in
-      let c, env = aux env c in
-     *) let content, env' = propagate content env in
-      let env' = Env.restrict env' env in
-      let env = Env.unify env env' in
-      For(a, b, c, content), env
-
-    | String _ ->
-      expr, env
-
-    | Switch (cond, content) ->
-      let cond, env = propagate cond env in
-      let content, env' = propagate content env in
-      let env' = Env.restrict env' env in
-      let env = Env.unify env env' in
-      Switch (cond, content), env
-(* 
-
-    | UnaryOp(UnOp.PreIncr, a) 
-    | UnaryOp(UnOp.PostIncr, a) ->
-      propagate 
-        (Assign(BinOp.Empty, a, 
-                BinaryOp(BinOp.Add, a, 
-                         Constant(CInt(Dec, Num.num_of_int 1, ""))
-                        )
-               )
-        ) env
-
-    | UnaryOp(UnOp.PreDecr, a) 
-    | UnaryOp(UnOp.PostDecr, a) ->
-      propagate 
-        (Assign(BinOp.Empty, a, 
-                BinaryOp(BinOp.Sub, a, 
-                         Constant(CInt(Dec, Num.num_of_int 1, ""))
-                        )
-               )
-        ) env
-
-
-*)
-
-    | Bloc l ->
-      let l, env = update_list l env
-      in Bloc l, env
-    | Expression l ->
-      let l, env = update_list l env
-      in Expression l, env
-    | Call (a, l) ->
-      let l, env = update_list l env
-      in Call(a, l), env
-
-    | Declaration(spec, l) ->
-      let rec aux l env = match l with
-        | [] -> l, env
-        | ((name, uuid), spec, decl, None)::tl ->
-          let env = Env.update_version env name (-1) in
-          let l, env = aux tl env in
-          ((name, uuid), spec, decl, None) :: l, env
-        | ((name, uuid), spec, decl, Some expr) :: tl ->
-          let expr, env = transform expr env name (-1) in
-          let l, env = aux tl env in 
-          ((name, uuid), spec, decl, Some expr) :: l, env
-      in let l, env = aux l env
-      in Declaration(spec, l), env
-
-    | Constant _ ->
-      expr, env
-
-    | _ -> failwith (pretty_print_ast expr)
-
-  in fst @@ propagate expr env
+  in let a, _ = propagate env expr
+  in a
