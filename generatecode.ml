@@ -181,7 +181,7 @@ let generate_transfer_in_openacc variables =
   let add_directive flag name accessors =
     let parts = List.mapi (fun i _ ->
         let part = name ^ "_infos" ^"." ^ Variables.string_of_rw_flag flag in
-        part ^ ".min", part ^ ".max"
+        part ^ ".min[" ^ string_of_int i ^ "]", part ^ ".max"
       ) accessors
     in
     let spec = List.fold_left (fun a (b, b') -> a ^ "[" ^ b ^ ":" ^ b' ^ "]") "" parts in
@@ -195,7 +195,7 @@ let generate_transfer_in_openacc variables =
     (fun name (level, p) ->
        if level != -1 then ()
        else begin
-         List.iter (fun (permissions, iterators, accessors, _) ->
+         List.iteri (fun i (permissions, iterators, accessors, _) ->
              if permissions land Variables.is_function = Variables.is_function then
                ()
              else 
