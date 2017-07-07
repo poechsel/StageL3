@@ -57,8 +57,14 @@ let hashtbl_keys tbl =
    the iterator and str_max to the max value
 *)
 let expression_to_c expression restricted =
+  let _ = Hashtbl.iter
+            (fun name content ->
+          let _ = print_endline name 
+          in List.iter (fun x -> print_endline @@ "  " ^ Calcul.pretty_print_arithm x) content
+        ) expression in
   let l_min, l_max = Hashtbl.fold (
       fun name l (expr_m, expr_M)  ->
+              let _ = print_endline @@ "-> " ^ name in
         if l = [] then (expr_m, expr_M)
         else
           (* first, sum the parts of the computation *)
@@ -67,6 +73,7 @@ let expression_to_c expression restricted =
           let mi, ma = 
             if name = "" then (a, a)
             else 
+              let a = if List.length l = 1 then a else "(" ^ a ^ ")" in
               let l = a ^ "*" ^ fst @@ Hashtbl.find restricted name in
               let h = a ^ "*" ^ snd @@ Hashtbl.find restricted name in
               let mi = "min(" ^ l ^ ", " ^ h ^ ")" in
@@ -78,6 +85,7 @@ let expression_to_c expression restricted =
   (* finally, concat all parts *)
   in __print_list (fun x -> x) " + " l_min, 
      __print_list (fun x -> x) " + " l_max
+
 
 
 let create_it_hashmap ?(filter = fun x -> true) iterators =
@@ -140,7 +148,7 @@ let compute_boundaries_in_c variables =
        let first_iteration = Hashtbl.create 3 in
        if level != -1 then ()
        else begin
-         List.iter (fun (permissions, iterators, accessors, _) ->
+         List.iteri (fun i (permissions, iterators, accessors, _) ->
              let its = create_it_hashmap iterators in
              let its_list = List.map (fun (name, _, _, _, _) -> name) iterators in
              let flag = Variables.string_of_rw_flag permissions in 
@@ -151,12 +159,12 @@ let compute_boundaries_in_c variables =
                  let _ = Printf.printf "int ___a = %s;\n" @@ small in
                  let _ = Printf.printf "int ___b = %s;\n" @@ huge in
                  let _ = if not (Hashtbl.mem first_iteration flag) then
-                 let _ = Printf.printf "%s.min = min(___a, ___b);\n" name_struct in
-                 let _ = Printf.printf "%s.max = max(___a, ___b);\n" name_struct in
-                 Hashtbl.add first_iteration flag true
-                 else
-                 let _ = Printf.printf "%s.min = min(%s.min, min(___a, ___b));\n" name_struct name_struct in
-                  Printf.printf "%s.max = max(%s.max, max(___a, ___b));\n" name_struct name_struct in
+                     let _ = Printf.printf "%s.min[%d] = min(___a, ___b);\n" name_struct i in
+                     let _ = Printf.printf "%s.max[%d] = max(___a, ___b);\n" name_struct i in
+                     Hashtbl.add first_iteration flag true
+                   else
+                     let _ = Printf.printf "%s.min[%d] = min(%s.min[%d], min(___a, ___b));\n" name_struct i name_struct i in
+                     Printf.printf "%s.max[%d] = max(%s.max[%d], max(___a, ___b));\n" name_struct i name_struct i in
                  print_endline "}" 
                )
                accessors

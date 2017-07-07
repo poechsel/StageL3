@@ -176,7 +176,7 @@ let rec convert_ast_to_arithms expr reserved =
 
 (* pretty print our expression *)
 let rec pretty_print_arithm expr = 
-  "(" ^(
+  (
     match expr with
     | LAdd l -> Prettyprint.__print_list pretty_print_arithm " + " l
     | LMul l -> Prettyprint.__print_list pretty_print_arithm " * " l
@@ -184,7 +184,7 @@ let rec pretty_print_arithm expr =
       "OP" ^ UnOp.pretty_print (pretty_print_arithm a) op
     | LC a ->
       Prettyprint.pretty_print_ast a
-  )^ ")"
+  )
 
 
 (* go through an unop chain to get the last element *)
