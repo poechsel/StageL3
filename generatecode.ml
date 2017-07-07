@@ -181,7 +181,7 @@ let generate_transfer_in_openacc variables =
   let add_directive flag name accessors =
     let parts = List.mapi (fun i _ ->
         let part = name ^ "_infos" ^"." ^ Variables.string_of_rw_flag flag in
-        part ^ ".min[" ^ string_of_int i ^ "]", part ^ ".max"
+        part ^ ".min[" ^ string_of_int i ^ "]", part ^ ".max[" ^ string_of_int i ^ "]"
       ) accessors
     in
     let spec = List.fold_left (fun a (b, b') -> a ^ "[" ^ b ^ ":" ^ b' ^ "]") "" parts in
@@ -203,7 +203,6 @@ let generate_transfer_in_openacc variables =
                  then 
                    "s_" ^ name ^ "." ^ Variables.string_of_rw_flag permissions 
 else name in
-               let _ = Printf.printf "%s : %s\n" (name) (Variables.string_of_rw_flag permissions) in
                add_directive permissions name accessors
            ) 
            p
