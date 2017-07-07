@@ -22,7 +22,7 @@ let iterators_compare (_, a, _, _, _) (_, b, _, _, _) =
 *)
 let get_iterators_from_variables variables = 
   let a = Hashtbl.fold 
-    (fun name (_, p) prev ->
+    (fun name p prev ->
         prev @ (List.fold_left
                   (fun a (_, i, _, _) ->
                      a @ i) 
@@ -57,14 +57,14 @@ let hashtbl_keys tbl =
    the iterator and str_max to the max value
 *)
 let expression_to_c expression restricted =
-  let _ = Hashtbl.iter
+ (* let _ = Hashtbl.iter
             (fun name content ->
           let _ = print_endline name 
           in List.iter (fun x -> print_endline @@ "  " ^ Calcul.pretty_print_arithm x) content
-        ) expression in
+        ) expression in*)
   let l_min, l_max = Hashtbl.fold (
       fun name l (expr_m, expr_M)  ->
-              let _ = print_endline @@ "-> " ^ name in
+             (* let _ = print_endline @@ "-> " ^ name in*)
         if l = [] then (expr_m, expr_M)
         else
           (* first, sum the parts of the computation *)
@@ -88,6 +88,11 @@ let expression_to_c expression restricted =
 
 
 
+
+(* create an hashmap linking iterators to a tuple
+   (var_min, var_max), where var_min is the name of the variable containing the min
+   and var_max the variable containing the max
+*)
 let create_it_hashmap ?(filter = fun x -> true) iterators =
       let its = Hashtbl.create (List.length iterators) in
       let _ = List.iter 
@@ -99,6 +104,37 @@ let create_it_hashmap ?(filter = fun x -> true) iterators =
                  ()
           ) iterators in
       its
+
+
+(* give back an hashmap associating to each variable if we can reindex it or not
+   A variable can be reindex if it is:
+    - a single dimension array
+    - it's access expression is "unique" <- could be change in the future, don't think so
+*)
+let get_reindexable_vars variables =
+  let out = Hashtbl.create 0 
+  in let _ = Hashtbl.iter (
+      fun name vars ->
+        List.iter (fun (permissions, iterators, accessors, uuid) ->
+            (* here is a small hack. We use the key (name, permission) to distinguish
+               the accesses*)
+            let name = (name, (permissions land (Variables.write lor Variables.read))) in
+            if Hashtbl.mem out name then
+              Hashtbl.replace out name (None, permissions, iterators, accessors, uuid)
+            else 
+              let reindex = if List.length accessors != 1 then
+                  None
+                else 
+                  let its_list = List.map (fun (name, _, _, _, _) -> name) iterators 
+                  in let expr = Calcul.operate (List.hd accessors) its_list
+                  in if Calcul.is_expr_abi_form expr then
+                    Some expr
+                  else None
+              in Hashtbl.add out name (reindex, permissions, iterators, accessors, uuid)
+          ) vars
+    ) variables
+  in out
+
 
 (*
     Given all the variables, generate the code which will compute
@@ -125,29 +161,26 @@ let create_iterators_in_c variables =
 let transform_code_par ast variables =
   let ast = ref ast in
   let _ = Hashtbl.iter 
-    (fun name (level, p) -> match level with
-       | -1 -> List.iter
+    (fun name p -> 
+      List.iter
                  (fun (permissions, _, _, uuids) ->
                     if permissions land Variables.is_function = Variables.is_function then
                       ()
                     else 
-                      let _ = print_endline @@ "seeing " ^ name  ^ " id = " ^ (__print_list string_of_int "," uuids) in
+               (*       let _ = print_endline @@ "seeing " ^ name  ^ " id = " ^ (__print_list string_of_int "," uuids) in*)
                       if permissions land Variables.is_array = Variables.is_array then
                       ast := Variables.rename !ast uuids (function
                           | Identifier(name, u) ->Access(Member, Identifier("s_"^name, u), Identifier(Variables.string_of_rw_flag permissions, 0))
                           | e -> e)
                  )
                  p
-       | _ -> ()
     ) variables
 in !ast
 
 let compute_boundaries_in_c variables =
   Hashtbl.iter
-    (fun name (level, p) ->
+    (fun name p ->
        let first_iteration = Hashtbl.create 3 in
-       if level != -1 then ()
-       else begin
          List.iteri (fun i (permissions, iterators, accessors, _) ->
              let its = create_it_hashmap iterators in
              let its_list = List.map (fun (name, _, _, _, _) -> name) iterators in
@@ -170,9 +203,9 @@ let compute_boundaries_in_c variables =
                accessors
            ) 
            p
-       end
     )
     variables
+
 
 
 (* missing here: we must copy structs entirely! *)
@@ -185,16 +218,12 @@ let generate_transfer_in_openacc variables =
       ) accessors
     in
     let spec = List.fold_left (fun a (b, b') -> a ^ "[" ^ b ^ ":" ^ b' ^ "]") "" parts in
-    let _ = print_endline spec in
-    let _ = print_endline name in
     if Hashtbl.mem tbl name then
       ()
     else Hashtbl.add tbl name ((Variables.openacc_dir_of_flag flag)^"("^name^spec ^")")
   in 
   let _ = Hashtbl.iter
-    (fun name (level, p) ->
-       if level != -1 then ()
-       else begin
+    (fun name p ->
          List.iteri (fun i (permissions, iterators, accessors, _) ->
              if permissions land Variables.is_function = Variables.is_function then
                ()
@@ -206,7 +235,6 @@ else name in
                add_directive permissions name accessors
            ) 
            p
-       end
     )
     variables
 in Hashtbl.iter (fun a b -> print_endline b) tbl

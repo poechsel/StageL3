@@ -17,10 +17,24 @@ let debug_access r =
               in 
               Printf.printf "%s: %d, %s it = %s \t[%s]\n" n level (print_rw_flag p) (__print_list pretty_print_iterator "," f) (__print_list string_of_int "," uuid)
           ) p) r
+let debug_reindexable r = 
+  let _ = print_endline "" in
+  let _ =     Hashtbl.iter (fun (name, _)
+         (wut, p, f, l, uuid) ->
+          let w = if wut = None then "none" else "yas" in
+              let n = 
+                pretty_print_ast @@ List.fold_left (fun a b -> Ast.Access(Ast.Array, a, b)) (Ast.Identifier (name, 0)) l
+              in 
+              Printf.printf "%s: <%s> , %s it = %s \t[%s]\n" n w (print_rw_flag p) (__print_list pretty_print_iterator "," f) (__print_list string_of_int "," uuid)
+          )  r
+in print_endline ""
 
 let analyse ast ast_expanded = 
     let var_access = get_all_variables ast_expanded
     in let _ = debug_access var_access
+    in let var_access = filter_global_variables var_access 
+    in let temp = Generatecode.get_reindexable_vars var_access 
+    in let _ = debug_reindexable temp
     in let _ = List.iter (fun x -> print_endline @@ pretty_print_iterator x) (Generatecode.get_iterators_from_variables var_access)
     in let _ = Generatecode.create_iterators_in_c var_access
     in let _ = print_endline "\nBOUNDARIES:"

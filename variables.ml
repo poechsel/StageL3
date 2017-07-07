@@ -266,14 +266,30 @@ and create_iterateur for_loop =
 
 and get_all_variables program = 
   let tbl = Hashtbl.create 0 in
-
-
-   let _ = aux tbl [] [] [] 0 0 program 
+  let _ = aux tbl [] [] [] 0 0 program 
   in tbl
 
 
 
-(* replace all identifier having an id in ids by expr *)
+(* could do better and more lisible if we add ocaml 4.03.0
+   unfortunately, on ubuntu ocaml 4.02.3 is more easily accessible *)
+let filter_global_variables variables =
+    let out = Hashtbl.create 0 in
+    let _ = Hashtbl.iter 
+        (fun name (level, p) ->
+           if level = -1 then
+             Hashtbl.add out name p
+        ) variables
+    in out
+    
+
+
+(* replace all identifier having an id in ids by expr 
+   ast is the inputed ast
+   ids the uuids of the identifier to replace
+   expr a function which given an identifier, returns the
+   sub-ast it will become
+*)
 let rec rename ast ids expr =
   let rec treat_opt = function
     | None -> None

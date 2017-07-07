@@ -305,6 +305,15 @@ let get_coefficients expr reserved =
 
 
 
+(* check if an expression is in the form a + i b 
+the expression is given in the form of operate
+*)
+let is_expr_abi_form expression =
+  let offset = if Hashtbl.mem expression "" then 1 else 0 in
+  Hashtbl.length expression <= 1 + offset
+
+
+
 
 (* finally, do the magic *)
 let operate expr reserved =
