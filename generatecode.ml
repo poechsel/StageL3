@@ -177,6 +177,32 @@ let transform_code_par ast variables =
     ) variables
 in !ast
 
+
+
+
+let generate_bounds_structures variables =
+  print_endline "\nGenerating structures: \n";
+  Hashtbl.iter
+    (fun name p ->
+       let size = 
+         List.fold_left 
+           (fun s (_, _, accessors, _) ->
+              let l = List.length accessors in
+              if l > s then l else s 
+           ) 0 p
+       in if size > 0 then begin
+         let e = Printf.sprintf 
+             "(int*)malloc(sizeof(int) * %d);" size in
+         List.iter
+           (fun p -> Printf.printf
+               "%s.%s.min %s\n%s.%s.max %s\n"
+               name p e name p e
+           ) ["f_w"; "f_r"; "f_rw"]
+       end
+    ) variables;
+  print_endline "\n"
+
+
 let compute_boundaries_in_c variables =
   Hashtbl.iter
     (fun name p ->

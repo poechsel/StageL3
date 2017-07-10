@@ -84,8 +84,8 @@ int intersection_interval(
 int main(void) {
 
     int n = 10000;
-    int m = n;
-    int a[2*n];
+    int m = n+18;
+    int a[3*n];
     for (int i  = 0; i < n; ++i) {
         a[i] = 1;
         a[i+n] = 0;
@@ -161,7 +161,7 @@ int main(void) {
             printf("%d <-> %d\n", a_infos.f_w.min[0], a_infos.f_w.max[0]);
             printf("%d <-> %d\n", a_infos.f_r.min[0], a_infos.f_r.max[0]);
 
-#pragma acc data copy(s_a) copy(s_a.f_w[a_infos.f_w.min[0] : a_infos.f_w.max[0]]) copy(s_a.f_r[a_infos.f_r.min[0] : a_infos.f_r.max[0]]) if (inter_1)
+#pragma acc data copy(s_a) copyout(s_a.f_w[a_infos.f_w.min[0] : a_infos.f_w.max[0] - a_infos.f_w.min[0]]) copyin(s_a.f_r[a_infos.f_r.min[0] : a_infos.f_r.max[0]- a_infos.f_r.min[0]]) if (inter_1)
             {
 #pragma acc kernels
                 for (int  i = 0; (i<n); i ++) 
