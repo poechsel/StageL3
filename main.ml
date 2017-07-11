@@ -29,28 +29,32 @@ let debug_reindexable r =
           )  r
 in print_endline ""
 
-let analyse ast ast_expanded = 
+let analyse ?(verbose = true) ?(output_channel = stderr) ast ast_expanded = 
     let var_access = get_all_variables ast_expanded
     in let _ = debug_access var_access
     in let var_access = filter_global_variables var_access 
     in let temp = Generatecode.get_reindexable_vars var_access 
     in let _ = debug_reindexable temp
     in let _ = List.iter (fun x -> print_endline @@ pretty_print_iterator x) (Generatecode.get_iterators_from_variables var_access)
-    in let _ = Generatecode.create_iterators_in_c var_access
-    in let _ = Generatecode.generate_bounds_structures var_access
+    in let _ = Generatecode.create_iterators_in_c output_channel var_access
+    in let _ = Generatecode.generate_bounds_structures output_channel var_access
     in let _ = print_endline "\nBOUNDARIES:"
-    in let _ = Generatecode.compute_boundaries_in_c var_access
+    in let _ = Generatecode.compute_boundaries_in_c output_channel var_access
     in let ast = Generatecode.transform_code_par ast var_access
     in let _ = print_endline @@ pretty_print_ast ast
-    in let _ = Generatecode.generate_transfer_in_openacc var_access
+    in let _ = Generatecode.generate_transfer_in_openacc output_channel var_access
     in ()
 
-let compile ast =
+let compile ?(optimisation_level=0) ?(verbose=true) path =
   begin
-    let ast = Ast.Bloc ast in
-    let ast_expanded = (constant_propagation ast) in
-    let _ = print_endline @@ pretty_print_ast ast_expanded in
-    let _ = analyse ast ast_expanded
+    let _ = if verbose then print_endline "Parsing file" 
+    in let ast = Parser.main Lexer.token (Lexing.from_channel @@ open_in path) 
+    in let ast = Ast.Bloc ast 
+    in let _ = if verbose then print_endline "Expanding constants"
+    in let ast_expanded = (constant_propagation ast) 
+    in let _ = if verbose then print_endline "Expanded constant ast:"
+    in let _ = print_endline @@ pretty_print_ast ast_expanded 
+    in let _ = analyse ~verbose:verbose ast ast_expanded
     in ()
     (*in detect_pure_for_loop e*)
   end
@@ -64,34 +68,19 @@ let lexbuf = Lexing.from_channel stdin
    et le résultat est donné à Parser.main *)
 
 let parse () = Parser.main Lexer.token lexbuf
-(*
-let arith expr = 
-  let [expr] = expr in 
-  let _ = print_endline "analysing expression" in
-  let _ =  print_endline @@ pretty_print_ast expr in
-  let expr = expand expr in
-  let _ =  print_endline @@ pretty_print_ast expr in
-  let expr = convert_ast_to_arithms expr ["i"; "j"] in
-  let _ = print_endline @@ pretty_print_arithm expr in
-  let expr = reorient expr ["i"; "j"] in
-  let _ = print_endline @@ pretty_print_arithm expr in
 
-  let _ = print_endline "moving unop" in
-  let expr = move_unop_sub expr  in
-  let _ = print_endline @@ pretty_print_arithm expr in
 
-  let results = get_coefficients expr ["i"; "j"] in
-  let _ = Hashtbl.iter (fun n c -> 
-      Printf.printf "%s : %s\n" n
-        (String.concat ", " (List.map pretty_print_arithm c))
-    ) results in
-  ()
-*)
-(* la fonction que l'on lance ci-dessous *)
-let calc () =
-  let result = parse () in
-  compile result;
-  flush stdout
-;;
 
-let _ = calc()
+let main () = 
+  let verbose = ref false in
+  let o0 = ref true in
+  let input_file = ref "" in
+  let speclist = 
+    [("-v", Arg.Set verbose, "enable verbose mode");
+     ("-O0", Arg.Set o0, "apply optimisation level 0 (only checking for bounds)")]
+  in let _ = Arg.parse speclist (fun x -> input_file := x) "Auto paralleliser dummy tool"
+  in compile !input_file ~optimisation_level:0;
+  flush stdout;
+  flush stderr
+
+let _ = main ()

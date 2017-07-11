@@ -140,10 +140,10 @@ let get_reindexable_vars variables =
     Given all the variables, generate the code which will compute
    the bounds for the various iterators
 *)
-let create_iterators_in_c variables =
+let create_iterators_in_c out variables =
   let iterators = get_iterators_from_variables variables in
 
-  let _ = Printf.printf "s_iterators it_list[%d];\n" (List.length iterators) in
+  let _ = Printf.fprintf out "s_iterators it_list[%d];\n" (List.length iterators) in
   let _ = List.iter (fun (name, uuid, start, stop, _) ->
       let its = create_it_hashmap iterators ~filter: (fun uuid' -> uuid' < uuid)
           in
@@ -151,8 +151,8 @@ let create_iterators_in_c variables =
       let start = Calcul.operate start its_list in
       let stop = Calcul.operate stop its_list in
       let target = "it_list[" ^ string_of_int uuid ^ "]" in
-      let _ = Printf.printf "%s.min = %s;\n" target @@ fst @@ expression_to_c start its in
-      Printf.printf "%s.max = %s;\n" target @@ snd @@ expression_to_c stop its 
+      let _ = Printf.fprintf out "%s.min = %s;\n" target @@ fst @@ expression_to_c start its in
+      Printf.fprintf out "%s.max = %s;\n" target @@ snd @@ expression_to_c stop its 
     ) iterators
   in ()
 
@@ -180,7 +180,7 @@ in !ast
 
 
 
-let generate_bounds_structures variables =
+let generate_bounds_structures out variables =
   print_endline "\nGenerating structures: \n";
   Hashtbl.iter
     (fun name p ->
@@ -194,16 +194,16 @@ let generate_bounds_structures variables =
          let e = Printf.sprintf 
              "(int*)malloc(sizeof(int) * %d);" size in
          List.iter
-           (fun p -> Printf.printf
+           (fun p -> Printf.fprintf out
                "%s.%s.min %s\n%s.%s.max %s\n"
                name p e name p e
            ) ["f_w"; "f_r"; "f_rw"]
        end
     ) variables;
-  print_endline "\n"
+  Printf.fprintf out "\n"
 
 
-let compute_boundaries_in_c variables =
+let compute_boundaries_in_c out variables =
   Hashtbl.iter
     (fun name p ->
        let first_iteration = Hashtbl.create 3 in
@@ -213,18 +213,18 @@ let compute_boundaries_in_c variables =
              let flag = Variables.string_of_rw_flag permissions in 
              let name_struct = name ^ "_infos" ^ "." ^ flag in
              List.iteri (fun i access ->
-                 let _ = print_endline "{" in
+                 let _ = Printf.fprintf out "{\n" in
                  let small, huge = expression_to_c (Calcul.operate access its_list) its in
-                 let _ = Printf.printf "int ___a = %s;\n" @@ small in
-                 let _ = Printf.printf "int ___b = %s;\n" @@ huge in
+                 let _ = Printf.fprintf out "int ___a = %s;\n" @@ small in
+                 let _ = Printf.fprintf out "int ___b = %s;\n" @@ huge in
                  let _ = if not (Hashtbl.mem first_iteration flag) then
-                     let _ = Printf.printf "%s.min[%d] = min(___a, ___b);\n" name_struct i in
-                     let _ = Printf.printf "%s.max[%d] = max(___a, ___b);\n" name_struct i in
+                     let _ = Printf.fprintf out "%s.min[%d] = min(___a, ___b);\n" name_struct i in
+                     let _ = Printf.fprintf out "%s.max[%d] = max(___a, ___b);\n" name_struct i in
                      Hashtbl.add first_iteration flag true
                    else
-                     let _ = Printf.printf "%s.min[%d] = min(%s.min[%d], min(___a, ___b));\n" name_struct i name_struct i in
-                     Printf.printf "%s.max[%d] = max(%s.max[%d], max(___a, ___b));\n" name_struct i name_struct i in
-                 print_endline "}" 
+                     let _ = Printf.fprintf out "%s.min[%d] = min(%s.min[%d], min(___a, ___b));\n" name_struct i name_struct i in
+                     Printf.fprintf out "%s.max[%d] = max(%s.max[%d], max(___a, ___b));\n" name_struct i name_struct i in
+                 Printf.fprintf out "}\n" 
                )
                accessors
            ) 
@@ -235,7 +235,7 @@ let compute_boundaries_in_c variables =
 
 
 (* missing here: we must copy structs entirely! *)
-let generate_transfer_in_openacc variables =
+let generate_transfer_in_openacc out variables =
   let tbl = Hashtbl.create 0 in
   let add_directive flag name accessors =
     let parts = List.mapi (fun i _ ->
@@ -263,4 +263,4 @@ else name in
            p
     )
     variables
-in Hashtbl.iter (fun a b -> print_endline b) tbl
+in Hashtbl.iter (fun a b -> Printf.fprintf out "%s\n" b) tbl
