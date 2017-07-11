@@ -3,6 +3,7 @@ open Prettyprint
 
 let read = 1 lsl 0
 let write = 1 lsl 1
+let readwrite = read lor write
 let is_array = 1 lsl 2
 let is_function = 1 lsl 3
 

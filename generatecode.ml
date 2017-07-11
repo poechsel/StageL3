@@ -229,6 +229,111 @@ let generate_bounds_structures out array_summary =
   Printf.fprintf out "\n"
 
 
+
+
+
+let transform_code_par ast variables =
+  let ast = ref ast in
+  let _ = Hashtbl.iter 
+      (fun name p -> 
+         List.iter
+           (fun (permissions, _, _, uuids) ->
+                (*       let _ = print_endline @@ "seeing " ^ name  ^ " id = " ^ (__print_list string_of_int "," uuids) in*)
+              if Variables.is_array_flag permissions then
+                ast := Variables.rename !ast uuids (function
+                    | Identifier(name, u) ->Access(Member, Identifier("s_"^name, u), Identifier(Variables.string_of_rw_flag permissions, 0))
+                    | e -> e)
+           )
+           p
+      ) variables
+  in !ast
+
+let transform_code_identifiers permissions uuids ast =
+    Variables.rename ast uuids (function
+        | Identifier(name, u) ->Access(Member, Identifier("s_"^name, u), Identifier(Variables.string_of_rw_flag permissions, 0))
+        | e -> e)
+    
+
+
+let rec foldi fct i init =
+  if i <= 0 then
+    init
+  else 
+    foldi fct (i-1) (fct init (i-1))
+
+let generate_parallel_loop out ast array_summary =
+  let get_name name permission =
+    "s_" ^ name ^ "_infos." ^ Variables.string_of_rw_flag permission
+  in
+  let keys = hashtbl_keys array_summary in
+  let rec aux ast l = 
+    match l with
+    | [] -> Printf.sprintf "%s\n" (pretty_print_ast ast)
+    | name :: tl ->
+      let uuids_hash, size = Hashtbl.find array_summary name 
+      in let read_write_init = ref (Hashtbl.mem uuids_hash (Variables.read lor Variables.write))
+
+    in let generate flag1 flag2 =
+           if Hashtbl.mem uuids_hash flag1 && Hashtbl.mem uuids_hash flag2 then
+             (Printf.sprintf "intersection_bounds(%d, %s, %s)" size (get_name name flag1) (get_name name flag2),
+              (if !read_write_init then
+                foldi (fun prev i ->
+                    let gname = get_name name in
+                    prev 
+                    ^
+                    Printf.sprintf "%s.min[%d] = min3(%s.min[%d], %s.min[%d], %s.min[%d]);\n"
+                      (gname Variables.readwrite) i
+                      (gname Variables.readwrite) i
+                      (gname flag1) i
+                      (gname flag2) i
+                      ^
+                      Printf.sprintf "%s.max[%d] = max3(%s.max[%d], %s.max[%d], %s.max[%d]);\n"
+                      (gname Variables.readwrite) i
+                      (gname Variables.readwrite) i
+                      (gname flag1) i
+                      (gname flag2) i
+                  
+                  ) size ""
+               else 
+                foldi (fun prev i ->
+                    let gname = get_name name in
+                    prev 
+                    ^
+                    Printf.sprintf "%s.min[%d] = min(%s.min[%d], %s.min[%d]);\n"
+                      (gname Variables.readwrite) i
+                      (gname flag1) i
+                      (gname flag2) i
+                      ^
+                    Printf.sprintf "%s.max[%d] = max(%s.max[%d], %s.max[%d]);\n"
+                      (gname Variables.readwrite) i
+                      (gname flag1) i
+                      (gname flag2) i
+                  
+                  ) size ""
+             )
+
+                ,
+              "",
+              aux (transform_code_identifiers (flag2 lor flag1) 
+                     ((Hashtbl.find uuids_hash flag1)
+                      @ (Hashtbl.find uuids_hash flag2))
+
+                     (if Hashtbl.mem uuids_hash (flag2 lor flag1) then
+                        transform_code_identifiers (flag2 lor flag1)
+                          (Hashtbl.find uuids_hash (flag2 lor flag1))
+                          ast
+                      else ast
+                     )
+                  ) tl
+             )::[]
+           else []
+      in let cond_parts = generate Variables.write Variables.read
+             @ generate Variables.write Variables.readwrite
+             @ generate Variables.read Variables.readwrite
+      in __print_list (fun (cond, update, preprocc, content) -> Printf.sprintf "if(%s) {\n%s\n%s\n%s}\n\n" cond update preprocc content) "" cond_parts
+  in Printf.fprintf out "%s\n" @@ aux ast keys
+
+
 let compute_boundaries_in_c out variables =
   Hashtbl.iter
     (fun name p ->
