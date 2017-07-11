@@ -26,6 +26,9 @@ let openacc_dir_of_flag f =
   else 
     "pcopyout"
 
+let is_array_flag f =
+  f land is_array = is_array
+
 
 let has_access variables name access = 
   if Hashtbl.mem variables name then

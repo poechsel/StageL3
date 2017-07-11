@@ -33,11 +33,12 @@ let analyse ?(verbose = true) ?(output_channel = stderr) ast ast_expanded =
     let var_access = get_all_variables ast_expanded
     in let _ = debug_access var_access
     in let var_access = filter_global_variables var_access 
+    in let array_summary = Generatecode.get_array_summary var_access
     in let temp = Generatecode.get_reindexable_vars var_access 
     in let _ = debug_reindexable temp
     in let _ = List.iter (fun x -> print_endline @@ pretty_print_iterator x) (Generatecode.get_iterators_from_variables var_access)
     in let _ = Generatecode.create_iterators_in_c output_channel var_access
-    in let _ = Generatecode.generate_bounds_structures output_channel var_access
+    in let _ = Generatecode.generate_bounds_structures output_channel array_summary
     in let _ = print_endline "\nBOUNDARIES:"
     in let _ = Generatecode.compute_boundaries_in_c output_channel var_access
     in let ast = Generatecode.transform_code_par ast var_access

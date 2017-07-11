@@ -87,6 +87,15 @@ let expression_to_c expression restricted =
      __print_list (fun x -> x) " + " l_max
 
 
+(*)
+let rec generate_bound_checking variables =
+  Hashtbl.iter 
+    (fun name p)
+
+variables
+  ()
+
+*)
 
 
 (* create an hashmap linking iterators to a tuple
@@ -161,36 +170,53 @@ let create_iterators_in_c out variables =
 let transform_code_par ast variables =
   let ast = ref ast in
   let _ = Hashtbl.iter 
-    (fun name p -> 
-      List.iter
-                 (fun (permissions, _, _, uuids) ->
-                    if permissions land Variables.is_function = Variables.is_function then
-                      ()
-                    else 
-               (*       let _ = print_endline @@ "seeing " ^ name  ^ " id = " ^ (__print_list string_of_int "," uuids) in*)
-                      if permissions land Variables.is_array = Variables.is_array then
-                      ast := Variables.rename !ast uuids (function
-                          | Identifier(name, u) ->Access(Member, Identifier("s_"^name, u), Identifier(Variables.string_of_rw_flag permissions, 0))
-                          | e -> e)
-                 )
-                 p
-    ) variables
-in !ast
+      (fun name p -> 
+         List.iter
+           (fun (permissions, _, _, uuids) ->
+                (*       let _ = print_endline @@ "seeing " ^ name  ^ " id = " ^ (__print_list string_of_int "," uuids) in*)
+              if Variables.is_array_flag permissions then
+                ast := Variables.rename !ast uuids (function
+                    | Identifier(name, u) ->Access(Member, Identifier("s_"^name, u), Identifier(Variables.string_of_rw_flag permissions, 0))
+                    | e -> e)
+           )
+           p
+      ) variables
+  in !ast
 
 
 
+(* return a hashtbl of the form:
+   name <=> ( uuids hash (this is an hasmap permission -> uuids)), size )
+*)
+let get_array_summary variables = 
+  let out = Hashtbl.create 0 
+  in let _ = Hashtbl.iter
+         (fun name p ->
+            let uuid_hash = Hashtbl.create 0 
+            in let size, a = List.fold_left (fun (previous_size, a) (permissions, _, accessors, uuids) ->
+                let a = a || (Variables.is_array_flag permissions)
+                in let permissions = permissions land (Variables.write lor Variables.read) 
+                in let size = 
+                     if List.length accessors > previous_size then
+                       List.length accessors 
+                     else previous_size
+                in let _ = if Hashtbl.mem uuid_hash permissions then
+                  Hashtbl.replace uuid_hash permissions (Hashtbl.find uuid_hash permissions @ uuids)
+                else
+                  Hashtbl.add uuid_hash permissions uuids
+  in (size, a))
+                (0, false) p
+            in if a then  Hashtbl.add out name (uuid_hash, size)
+         ) variables
+  in out
 
-let generate_bounds_structures out variables =
-  print_endline "\nGenerating structures: \n";
+
+
+let generate_bounds_structures out array_summary =
+  Printf.fprintf out "\nGenerating structures: \n";
   Hashtbl.iter
-    (fun name p ->
-       let size = 
-         List.fold_left 
-           (fun s (_, _, accessors, _) ->
-              let l = List.length accessors in
-              if l > s then l else s 
-           ) 0 p
-       in if size > 0 then begin
+    (fun name (_, size) ->
+       if size > 0 then begin
          let e = Printf.sprintf 
              "(int*)malloc(sizeof(int) * %d);" size in
          List.iter
@@ -199,7 +225,7 @@ let generate_bounds_structures out variables =
                name p e name p e
            ) ["f_w"; "f_r"; "f_rw"]
        end
-    ) variables;
+    ) array_summary;
   Printf.fprintf out "\n"
 
 
