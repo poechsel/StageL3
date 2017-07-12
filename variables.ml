@@ -121,87 +121,87 @@ let add_variable tbl name forloop indices uuids level permission =
 
 
 
-  let rec aux tbl forloop_list indices_list uuids level permission program =
+  let rec aux tbl forloop_list indices_list uuids level permission program program_rewrote =
     let aux = aux tbl in
-  match program with
-    | Identifier (";", _) | Identifier ("", _)  -> ()
-    | Identifier(s, uuid) -> 
+  match program, program_rewrote with
+    | Identifier (";", _), _ | Identifier ("", _), _  -> ()
+    | Identifier(s, uuid), _ -> 
+      Printf.printf "=> %s : %d\n" s permission;
       add_variable tbl s forloop_list indices_list (uuid :: uuids) (-1) permission
 
-    | Declaration (_, l) ->
-      List.iter (fun ((s, uuid), _, d, a) ->
+    | Declaration (_, l), Declaration(_, l') ->
+      List.iter2 (fun ((s, uuid), _, d, a) (_, _, _, a')->
           let f_a = match d with | DeArray _ -> is_array | DeFunction _ -> is_function | _ -> 0 in
           let _ = add_variable tbl s forloop_list indices_list (uuid :: uuids) level (permission lor f_a lor write)
-          in match a with | None -> () | Some a -> aux forloop_list indices_list uuids level permission a  ) l
+          in match a, a' with | None, _ -> () | Some a, Some a' -> aux forloop_list indices_list uuids level permission a a' ) l l'
 
-    | InitializerList l 
-    | Expression l ->
-      List.iter (aux forloop_list indices_list  uuids level permission) l
+    | InitializerList l, InitializerList l' 
+    | Expression l, Expression l' ->
+      List.iter2 (aux forloop_list indices_list  uuids level permission) l l'
 
-    | Call (w, l) ->
-      aux  forloop_list indices_list uuids level (permission lor read lor is_function) w;
-      List.iter (aux forloop_list indices_list uuids  level permission) l
+    | Call (w, l), Call(w', l') ->
+      aux  forloop_list indices_list uuids level (permission lor read lor is_function) w w';
+      List.iter2 (aux forloop_list indices_list uuids  level permission) l l'
 
-    | Access (Array, a, b) ->  begin
-        aux forloop_list (b::indices_list) uuids level (permission lor is_array) a;
+    | Access (Array, a, b), Access(Array, a', b') ->  begin
+        aux forloop_list (b'::indices_list) uuids level (permission lor is_array) a a';
         (*print_endline @@ "====> adding " ^ pretty_print_ast b ^ " with flah " ^ (print_rw_flag permission);*)
-        aux forloop_list indices_list uuids  level ((permission lor read) land lnot write land lnot is_array) b;
+        aux forloop_list indices_list uuids  level ((permission lor read) land lnot write land lnot is_array) b b';
       end
 
-    | UnaryOp(UnOp.PostDecr, a)
-    | UnaryOp(UnOp.PreDecr, a)
-    | UnaryOp(UnOp.PreIncr, a)
-    | UnaryOp(UnOp.PostIncr, a) ->
-      aux forloop_list indices_list  uuids level (permission lor read lor write) a
+    | UnaryOp(UnOp.PostDecr, a), UnaryOp(UnOp.PostDecr, a')
+    | UnaryOp(UnOp.PreDecr, a), UnaryOp(UnOp.PreDecr, a')
+    | UnaryOp(UnOp.PreIncr, a), UnaryOp(UnOp.PreIncr, a')
+    | UnaryOp(UnOp.PostIncr, a), UnaryOp(UnOp.PostIncr, a') ->
+      print_endline "ETZYERYERY";
+      aux forloop_list indices_list  uuids level (permission lor read lor write) a a'
 
-    | Access (_, a, _) 
-    | UnaryOp(_, a) 
-    | Cast (_, a) ->
-      aux forloop_list indices_list  uuids level (permission lor read) a
+    | Access (_, a, _), Access(_, a', _) 
+    | UnaryOp(_, a), UnaryOp(_, a')
+    | Cast (_, a), Cast(_, a') ->
+      aux forloop_list indices_list  uuids level (permission lor read) a a'
 
-    | Default a
-    | Label(_, a) ->
-      aux forloop_list indices_list  uuids level permission a
+    | Default a, Default a'
+    | Label(_, a), Label(_, a') ->
+      aux forloop_list indices_list  uuids level permission a a'
 
-    | BinaryOp(_, a, b) -> 
-      aux forloop_list indices_list  uuids level (permission lor read) a;
-      aux forloop_list indices_list  uuids level (permission lor read) b;
+    | BinaryOp(_, a, b), BinaryOp(_, a', b') -> 
+      aux forloop_list indices_list  uuids level (permission lor read) a a';
+      aux forloop_list indices_list  uuids level (permission lor read) b b';
 
-    | Switch (a, b) 
-    | While (_, a, b)
-    | Case (a, b) -> 
-      aux forloop_list indices_list  uuids level permission a;
-      aux forloop_list indices_list  uuids level permission b;
+    | Switch (a, b), Switch(a', b')
+    | While (_, a, b), While(_, a', b')
+    | Case (a, b), Case(a', b') -> 
+      aux forloop_list indices_list  uuids level permission a a';
+      aux forloop_list indices_list  uuids level permission b b';
 
-    | Assign (_, a, b) ->
-      aux forloop_list indices_list  uuids level (permission lor write) a; aux forloop_list indices_list  uuids level (permission lor read) b
+    | Assign (_, a, b), Assign(_, a', b') ->
+      aux forloop_list indices_list  uuids level (permission lor write) a a'; 
+      aux forloop_list indices_list  uuids level (permission lor read) b b'
 
-    | IfThenElse (_, a, b, c) ->
-      aux forloop_list indices_list  uuids level permission a;
-      aux forloop_list indices_list uuids level permission b;
-      aux forloop_list indices_list  uuids level permission c 
 
-    | Return (Some a) ->
-      aux forloop_list indices_list  uuids level permission a
+    | Return (Some a), Return(Some a') ->
+      aux forloop_list indices_list  uuids level permission a a'
 
-    | For (a, b, c, d) ->
-      let f x = match x with | None -> () | Some x -> 
-        aux forloop_list indices_list  uuids (level + 1) permission x in
-      f a; f b; f c; 
+    | For (a, b, c, d), For (a', b', c', d') ->
+      let f x x' = match x, x' with | None, _ -> () | Some x, Some x' -> 
+        aux forloop_list indices_list  uuids (level + 1) permission x x' in
+      f a a'; f b b'; f c c'; 
       begin try
-          let i = create_iterateur (For(a, b, c, d))
+          (* we create iterators from the expandend expression *)
+          let i = create_iterateur (For(a', b', c', d'))
               (*TODO move content pure loop for index rewriting here *)
-          in  aux (i::forloop_list) indices_list  uuids level permission d
+          in  aux (i::forloop_list) indices_list  uuids level permission d d'
         with Not_found ->
-      aux forloop_list indices_list  uuids level permission d
+      aux forloop_list indices_list  uuids level permission d d'
           end
 
-    | Bloc l ->
-      List.iter (aux forloop_list indices_list  uuids (level + 1) permission) l
+    | Bloc l, Bloc l' ->
+      List.iter2 (aux forloop_list indices_list  uuids (level + 1) permission) l l'
 
-    | FunctionDeclaration(_, (name, _, _), _, content) ->
+    | FunctionDeclaration(_, (name, _, _), _, content), FunctionDeclaration (_, _, _, content') ->
       (* we should had the name, but laziness is the winner *)
-      aux forloop_list indices_list  uuids level permission content
+      aux forloop_list indices_list  uuids level permission content content'
     | _ -> ()
 
 
@@ -268,9 +268,9 @@ and create_iterateur for_loop =
 
 
 
-and get_all_variables program = 
+and get_all_variables program program_rewrote = 
   let tbl = Hashtbl.create 0 in
-  let _ = aux tbl [] [] [] 0 0 program 
+  let _ = aux tbl [] [] [] 0 0 program  program_rewrote
   in tbl
 
 

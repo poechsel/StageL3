@@ -30,7 +30,9 @@ let debug_reindexable r =
 in print_endline ""
 
 let analyse ?(verbose = true) ?(output_channel = stderr) ast ast_expanded = 
-    let var_access = get_all_variables ast_expanded
+
+  (* TODO solve a big bug here. We should do ast_expanded to get all the accessors correct, but beacause it removes '++' and '--' it is not a good thing. Perhaps a merge function ? *)
+    let var_access = get_all_variables ast ast_expanded
     in let _ = debug_access var_access
     in let var_access = filter_global_variables var_access 
     in let array_summary = Generatecode.get_array_summary var_access
