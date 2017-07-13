@@ -181,7 +181,7 @@ let rec pretty_print_arithm expr =
     | LAdd l -> Prettyprint.__print_list pretty_print_arithm " + " l
     | LMul l -> Prettyprint.__print_list pretty_print_arithm " * " l
     | LUnop (op, a) ->
-      "OP" ^ UnOp.pretty_print (pretty_print_arithm a) op
+      UnOp.pretty_print (pretty_print_arithm a) op
     | LC a ->
       Prettyprint.pretty_print_ast a
   )

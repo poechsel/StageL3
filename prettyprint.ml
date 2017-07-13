@@ -28,7 +28,7 @@ let rec pretty_print_ast ast =
   | UnaryOp(op, ast) ->
     UnOp.pretty_print (pretty_print_ast ast) op
   | BinaryOp(op, a, b) ->
-    (if op = BinOp.Sub then "SUB" else "" ) ^ ("(" ^ pretty_print_ast a ^ BinOp.pretty_print op ^ pretty_print_ast b ^ ")")
+    ("(" ^ pretty_print_ast a ^ BinOp.pretty_print op ^ pretty_print_ast b ^ ")")
   | Assign(op, a, b) ->
     pretty_print_ast a ^ " " ^ BinOp.pretty_print op ^ "= " ^ pretty_print_ast b
   | Expression l ->
@@ -49,7 +49,7 @@ let rec pretty_print_ast ast =
   | Label (n, s) -> n ^ " :\n" ^ pretty_print_ast s
   | Case (a, b) -> "case " ^ pretty_print_ast a ^ ":\n" ^ pretty_print_ast b
   | Bloc l -> let _ = incr indentation_level in
-    let o = "{\n" ^ __print_list (fun a -> mk_indent () ^ pretty_print_ast a) ";\n" l ^ "\n}" in
+    let o = "{\n" ^ __print_list (fun a -> mk_indent () ^ pretty_print_ast a ^ ";") "\n" l ^ "\n}" in
     let _ = decr indentation_level in
     o
   | Switch (expr, l) -> "switch (" ^ pretty_print_ast expr ^ ")" ^ pretty_print_ast l ^ "\n"

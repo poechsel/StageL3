@@ -217,13 +217,22 @@ let generate_bounds_structures out array_summary =
   Hashtbl.iter
     (fun name (_, size) ->
        if size > 0 then begin
+         let name_infos = Printf.sprintf "s_%s_infos" name in
+         let _ = Printf.fprintf out "s_infos %s;\n" name_infos in
          let e = Printf.sprintf 
              "(int*)malloc(sizeof(int) * %d);" size in
-         List.iter
+         let _ = List.iter
            (fun p -> Printf.fprintf out
-               "%s.%s.min %s\n%s.%s.max %s\n"
-               name p e name p e
+               "%s.%s.min = %s\n%s.%s.max = %s\n"
+               name_infos p e name_infos p e
            ) ["f_w"; "f_r"; "f_rw"]
+         in let _ = Printf.fprintf out "s_array s_%s;\n" name
+         in let _ = List.iter
+                (fun p -> Printf.fprintf out
+                    "s_%s.%s = %s;\n"
+                name p name
+                ) ["f_w"; "f_r"; "f_rw"]
+         in ()
        end
     ) array_summary;
   Printf.fprintf out "\n"
@@ -261,6 +270,12 @@ let rec foldi fct i init =
   else 
     fct (foldi fct (i-1) init) (i-1)
 
+
+let rec extract_bloc_content b =
+  match b with
+  | Bloc([x]) -> extract_bloc_content x
+  | x -> x
+
 let generate_parallel_loop out ast array_summary =
   let get_name name permission =
     "s_" ^ name ^ "_infos." ^ Variables.string_of_rw_flag permission
@@ -273,6 +288,8 @@ let generate_parallel_loop out ast array_summary =
     let m = foldi(fun a i ->
         a ^ "[" ^ (name_infos ^ ".min" ^ "[" ^ string_of_int i ^ "]") ^ ":" ^
         (name_infos ^ ".max" ^ "[" ^ string_of_int i ^ "]") ^
+        " - " ^
+(name_infos ^ ".min" ^ "[" ^ string_of_int i ^ "]") ^
         "]"
       ) size ""
         in
@@ -282,7 +299,8 @@ let generate_parallel_loop out ast array_summary =
   in let keys = hashtbl_keys array_summary 
   in let rec aux ast l = 
     match l with
-    | [] -> Printf.sprintf "%s\n" (pretty_print_ast ast)
+      | [] -> "#pragma acc data kernels\n" ^
+              Printf.sprintf "%s\n" (pretty_print_ast @@ extract_bloc_content ast)
     | name :: tl ->
       let uuids_hash, size = Hashtbl.find array_summary name 
       in let read_write_init = ref (Hashtbl.mem uuids_hash (Variables.read lor Variables.write))
@@ -404,7 +422,7 @@ let compute_boundaries_in_c out variables =
              let its = create_it_hashmap iterators in
              let its_list = List.map (fun (name, _, _, _, _) -> name) iterators in
              let flag = Variables.string_of_rw_flag permissions in 
-             let name_struct = name ^ "_infos" ^ "." ^ flag in
+             let name_struct = "s_" ^ name ^ "_infos" ^ "." ^ flag in
              List.iteri (fun i access ->
                  let _ = Printf.fprintf out "{\n" in
                  let small, huge = expression_to_c (Calcul.operate access its_list) its in
