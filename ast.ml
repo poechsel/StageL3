@@ -89,6 +89,12 @@ module BinOp = struct
     | Or      -> "||"
     | And     -> "&&"
     | Empty   -> ""
+
+
+  let is_op_comp op =
+    match op with
+    | Slt | Sgt | Leq | Geq | Neq | Eq -> true
+    | _ -> false
 end
 
 

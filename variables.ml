@@ -76,6 +76,7 @@ let unop_pure_for_loop op i =
   | _ -> false
 
 let one = Constant(CInt(Dec, Num.num_of_int 1, ""))
+let zero = Constant(CInt(Dec, Num.num_of_int 0, ""))
 let uuid_iterateur = ref 0
 
 

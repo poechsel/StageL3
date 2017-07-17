@@ -323,3 +323,15 @@ let operate expr reserved =
   let expr = move_unop_sub expr  in
   let results = get_coefficients expr reserved in
   results
+
+
+
+let rec ineq_normalisation_constraint expr reserved =
+  match expr with
+  | BinaryOp(BinOp.Or, expr1, expr2) 
+  | BinaryOp(BinOp.And, expr1, expr2) ->
+    ineq_normalisation_constraint expr1 reserved @ ineq_normalisation_constraint expr2 reserved
+  | BinaryOp(op, expr1, expr2) when BinOp.is_op_comp op ->
+    [(op, operate (BinaryOp(BinOp.Sub, expr2, expr1)) reserved)]
+
+  | _ -> failwith "unknown operator"
