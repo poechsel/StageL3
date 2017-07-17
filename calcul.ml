@@ -1,5 +1,5 @@
 open Ast
-open Variables
+open Utils
 
 
 (* here, our goal, is knowing we have an arithmetic expression, 
@@ -236,7 +236,7 @@ let rec move_unop_sub expr =
     | [] -> []
     | LUnop(UnOp.Sub, LUnop(UnOp.Sub, a)) :: l -> aux (a :: l)
     | LUnop(UnOp.Sub, a) :: n :: l -> a :: aux (LUnop(UnOp.Sub, n) :: l)
-    | LUnop(UnOp.Sub, a) :: [] -> [a; LUnop(UnOp.Sub, LC(Variables.one))]
+    | LUnop(UnOp.Sub, a) :: [] -> [a; LUnop(UnOp.Sub, LC(one))]
     | x :: l -> x :: aux l
   in
   match expr with
@@ -245,7 +245,7 @@ let rec move_unop_sub expr =
   | LAdd l ->
     LAdd (List.map move_unop_sub  l)
   | LUnop(UnOp.Sub, a) ->
-    LMul ([a; LUnop(UnOp.Sub, LC(Variables.one))])
+    LMul ([a; LUnop(UnOp.Sub, LC(one))])
   | LUnop(op, a) ->
     LUnop(op, move_unop_sub a)
   | e -> e
@@ -273,7 +273,7 @@ let remove_ident_from_expr expr w =
 
 (* add a product of term to the list *)
 let add_hashmp tbl name x =
-  let x = if x = LMul([]) then LMul([LC(Variables.one)]) else x in
+  let x = if x = LMul([]) then LMul([LC(one)]) else x in
   if Hashtbl.mem tbl name then
     Hashtbl.replace tbl name (x :: Hashtbl.find tbl name)
   else Hashtbl.add tbl name [x]
@@ -337,7 +337,7 @@ let rec ineq_normalisation_constraint expr reserved =
   | _ -> failwith "unknown operator"
 
 
-(*let generate_constraints (op, ineq)  =
+let generate_constraints (op, ineq)  =
   let constraints = Hashtbl.create 0 in
   let append_constraint key content =
     if Hashtbl.mem constraints key then
@@ -351,14 +351,15 @@ let rec ineq_normalisation_constraint expr reserved =
         else 
           let ineq' = Hashtbl.copy ineq 
           in let _ = Hashtbl.remove ineq' key
-(*)          in let str = Hashtbl.fold (fun key content b ->
+          in let _ = append_constraint key (op, ineq', content)
+(*          in let str = Hashtbl.fold (fun key content b ->
               b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
             ) ineq ""
           in let _ = print_endline @@
                "-(" ^key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content ^ ")"
                ^ BinOp.pretty_print op ^ str
-  *)        in let _ = Hashtbl.add ineq key content
+  *)      
           in ()
     ) ineq
 in constraints
-*)
+

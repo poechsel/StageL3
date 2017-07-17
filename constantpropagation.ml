@@ -1,4 +1,5 @@
 open Ast
+open Utils
 open Prettyprint
 
 
@@ -35,7 +36,7 @@ module Env = struct
     match postincrs with
     | [] -> env
     | (x, which) :: l -> 
-      let env = add_binding env x (BinaryOp(which, get_last env x (-1), Variables.one))
+      let env = add_binding env x (BinaryOp(which, get_last env x (-1), one))
       in merge_postincr env l
 
   (* remove vars that are in env' but not in env*)
@@ -128,7 +129,7 @@ let constant_propagation expr =
         | Identifier (name, _) ->
           let a, env = propagate env a in
           let _ = print_endline @@ pretty_print_ast a in
-          let a' = BinaryOp(BinOp.Add, a, Variables.one) in
+          let a' = BinaryOp(BinOp.Add, a, one) in
           let env = Env.add_binding env name a' in
           a, env
         | _ ->
@@ -139,7 +140,7 @@ let constant_propagation expr =
         match a with
         | Identifier (name, _) ->
           let a, env = propagate env a in
-          let a' = BinaryOp(BinOp.Sub, a, Variables.one) in
+          let a' = BinaryOp(BinOp.Sub, a, one) in
           let env = Env.add_binding env name a' in
           a, env
         | _ ->
@@ -150,7 +151,7 @@ let constant_propagation expr =
         match a with
         | Identifier (name, uuid) ->
           let a, env = propagate env a in
-          let a = BinaryOp(BinOp.Add, a, Variables.one) in
+          let a = BinaryOp(BinOp.Add, a, one) in
           let env = Env.add_binding env name a in
           a, env
         | _ ->
@@ -161,7 +162,7 @@ let constant_propagation expr =
         match a with
         | Identifier (name, uuid) ->
           let a, env = propagate env a in
-          let a = BinaryOp(BinOp.Sub, a, Variables.one) in
+          let a = BinaryOp(BinOp.Sub, a, one) in
           let env = Env.add_binding env name a in
           a, env
         | _ ->

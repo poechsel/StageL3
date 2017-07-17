@@ -1,3 +1,4 @@
+open Utils
 open Ast
 open Prettyprint
 
@@ -75,8 +76,6 @@ let unop_pure_for_loop op i =
     end
   | _ -> false
 
-let one = Constant(CInt(Dec, Num.num_of_int 1, ""))
-let zero = Constant(CInt(Dec, Num.num_of_int 0, ""))
 let uuid_iterateur = ref 0
 
 
@@ -122,32 +121,32 @@ let add_variable tbl name forloop indices uuids level permission =
 
 
 
-  let rec aux tbl forloop_list indices_list uuids level permission program program_rewrote =
+  let rec aux tbl forloop_list indices_list constraints uuids level permission program program_rewrote =
     let aux = aux tbl in
   match program, program_rewrote with
     | Identifier (";", _), _ | Identifier ("", _), _  -> ()
     | Identifier(s, uuid), _ -> 
       Printf.printf "=> %s : %d\n" s permission;
-      add_variable tbl s forloop_list indices_list (uuid :: uuids) (-1) permission
+      add_variable tbl s forloop_list constraints (uuid :: uuids) (-1) permission
 
     | Declaration (_, l), Declaration(_, l') ->
       List.iter2 (fun ((s, uuid), _, d, a) (_, _, _, a')->
           let f_a = match d with | DeArray _ -> is_array | DeFunction _ -> is_function | _ -> 0 in
-          let _ = add_variable tbl s forloop_list indices_list (uuid :: uuids) level (permission lor f_a lor write)
-          in match a, a' with | None, _ -> () | Some a, Some a' -> aux forloop_list indices_list uuids level permission a a' ) l l'
+          let _ = add_variable tbl s forloop_list constraints (uuid :: uuids) level (permission lor f_a lor write)
+          in match a, a' with | None, _ -> () | Some a, Some a' -> aux forloop_list indices_list constraints uuids level permission a a' ) l l'
 
     | InitializerList l, InitializerList l' 
     | Expression l, Expression l' ->
-      List.iter2 (aux forloop_list indices_list  uuids level permission) l l'
+      List.iter2 (aux forloop_list indices_list constraints uuids level permission) l l'
 
     | Call (w, l), Call(w', l') ->
-      aux  forloop_list indices_list uuids level (permission lor read lor is_function) w w';
-      List.iter2 (aux forloop_list indices_list uuids  level permission) l l'
+      aux  forloop_list indices_list constraints uuids level (permission lor read lor is_function) w w';
+      List.iter2 (aux forloop_list indices_list constraints uuids  level permission) l l'
 
     | Access (Array, a, b), Access(Array, a', b') ->  begin
-        aux forloop_list (b'::indices_list) uuids level (permission lor is_array) a a';
+        aux forloop_list (b'::indices_list) constraints uuids level (permission lor is_array) a a';
         (*print_endline @@ "====> adding " ^ pretty_print_ast b ^ " with flah " ^ (print_rw_flag permission);*)
-        aux forloop_list indices_list uuids  level ((permission lor read) land lnot write land lnot is_array) b b';
+        aux forloop_list indices_list constraints uuids level ((permission lor read) land lnot write land lnot is_array) b b';
       end
 
     | UnaryOp(UnOp.PostDecr, a), UnaryOp(UnOp.PostDecr, a')
@@ -155,56 +154,66 @@ let add_variable tbl name forloop indices uuids level permission =
     | UnaryOp(UnOp.PreIncr, a), UnaryOp(UnOp.PreIncr, a')
     | UnaryOp(UnOp.PostIncr, a), UnaryOp(UnOp.PostIncr, a') ->
       print_endline "ETZYERYERY";
-      aux forloop_list indices_list  uuids level (permission lor read lor write) a a'
+      aux forloop_list indices_list constraints uuids level (permission lor read lor write) a a'
 
     | Access (_, a, _), Access(_, a', _) 
     | UnaryOp(_, a), UnaryOp(_, a')
     | Cast (_, a), Cast(_, a') ->
-      aux forloop_list indices_list  uuids level (permission lor read) a a'
+      aux forloop_list indices_list constraints uuids level (permission lor read) a a'
 
     | Default a, Default a'
     | Label(_, a), Label(_, a') ->
-      aux forloop_list indices_list  uuids level permission a a'
+      aux forloop_list indices_list constraints uuids level permission a a'
 
     | BinaryOp(_, a, b), BinaryOp(_, a', b') -> 
-      aux forloop_list indices_list  uuids level (permission lor read) a a';
-      aux forloop_list indices_list  uuids level (permission lor read) b b';
+      aux forloop_list indices_list constraints uuids level (permission lor read) a a';
+      aux forloop_list indices_list constraints uuids level (permission lor read) b b';
 
     | Switch (a, b), Switch(a', b')
     | While (_, a, b), While(_, a', b')
     | Case (a, b), Case(a', b') -> 
-      aux forloop_list indices_list  uuids level permission a a';
-      aux forloop_list indices_list  uuids level permission b b';
+      aux forloop_list indices_list constraints uuids level permission a a';
+      aux forloop_list indices_list constraints uuids level permission b b';
 
     | Assign (_, a, b), Assign(_, a', b') ->
-      aux forloop_list indices_list  uuids level (permission lor write) a a'; 
-      aux forloop_list indices_list  uuids level (permission lor read) b b'
+      aux forloop_list indices_list constraints uuids level (permission lor write) a a'; 
+      aux forloop_list indices_list constraints uuids level (permission lor read) b b'
 
 
     | Return (Some a), Return(Some a') ->
-      aux forloop_list indices_list  uuids level permission a a'
+      aux forloop_list indices_list constraints uuids level permission a a'
 
     | For (a, b, c, d), For (a', b', c', d') ->
       let f x x' = match x, x' with | None, _ -> () | Some x, Some x' -> 
-        aux forloop_list indices_list  uuids (level + 1) permission x x' in
+        aux forloop_list indices_list constraints uuids (level + 1) permission x x' in
       f a a'; f b b'; f c c'; 
       begin try
           (* we create iterators from the expandend expression *)
-          let i = create_iterateur (For(a', b', c', d'))
+          let i = create_iterateur (For(a', b', c', d')) forloop_list
               (*TODO move content pure loop for index rewriting here *)
-          in  aux (i::forloop_list) indices_list  uuids level permission d d'
+          in  aux (i::forloop_list) indices_list constraints uuids level permission d d'
         with Not_found ->
-      aux forloop_list indices_list  uuids level permission d d'
+      aux forloop_list indices_list constraints uuids level permission d d'
           end
 
     | Bloc l, Bloc l' ->
-      List.iter2 (aux forloop_list indices_list  uuids (level + 1) permission) l l'
+      List.iter2 (aux forloop_list indices_list constraints uuids (level + 1) permission) l l'
 
     | FunctionDeclaration(_, (name, _, _), _, content), FunctionDeclaration (_, _, _, content') ->
       (* we should had the name, but laziness is the winner *)
-      aux forloop_list indices_list  uuids level permission content content'
+      aux forloop_list indices_list constraints uuids level permission content content'
+    | IfThenElse(_, cond, if_clause, else_clause), IfThenElse(_, cond', if_clause', else_clause') ->
+      aux forloop_list indices_list constraints uuids level permission cond cond';
+        aux forloop_list indices_list constraints uuids level permission if_clause if_clause';
+      aux forloop_list indices_list constraints uuids level permission else_clause else_clause'
     | _ -> ()
 
+
+
+(* a constraint is a triplet
+   (operator, right side, dividor)
+   right side and dividor are in expression format
+   *)
 
 
 
@@ -213,27 +222,34 @@ let add_variable tbl name forloop indices uuids level permission =
 (* return a triplet (i, start, end, step) if we have a pure for loop.
    i is an iterator going from start to end (included) by a step of step
    *)
-and create_iterateur for_loop =
+and create_iterateur for_loop indices =
   match for_loop with
   | For(Some start, Some end_cond, Some it, stmts) ->
     let var_name, start = match start with
-      | Declaration(_, [(name, _), _, _, Some start]) -> name, start
-      | Assign(BinOp.Empty, Identifier(name, uuid), start) -> name, start
+      | Declaration(_, [(name, _), _, _, Some start])  
+      | Assign(BinOp.Empty, Identifier(name, _), start) -> 
+
+    let indices = name :: List.map (fun (x, _, _, _, _) -> x) indices in
+    let indices = unique_list indices in
+    let temp = Calcul.operate start indices in
+
+        
+        name, start
       | _ -> failwith "start indices bad formatted"
     in let stop = match end_cond with
         | Identifier(x, uuid) when x = var_name -> Constant(CInt(Dec, Num.num_of_int 0, ""))
         (* i < n *)
         | BinaryOp(BinOp.Slt, Identifier(r, uuid), l) when r = var_name -> 
-          BinaryOp (BinOp.Sub, l, one)
+          BinaryOp (BinOp.Sub, l, Utils.one)
         (* n < i *)
         | BinaryOp(BinOp.Slt, r, Identifier(l, uuid)) when l = var_name -> 
-          BinaryOp (BinOp.Add, r, one)
+          BinaryOp (BinOp.Add, r, Utils.one)
         (* i > n *)
         | BinaryOp(BinOp.Sgt, Identifier(r, uuid), l) when r = var_name -> 
-          BinaryOp (BinOp.Add, l, one)
+          BinaryOp (BinOp.Add, l, Utils.one)
         (* n > i *)
         | BinaryOp(BinOp.Sgt, r, Identifier(l, uuid)) when l = var_name -> 
-          BinaryOp (BinOp.Sub, r, one)
+          BinaryOp (BinOp.Sub, r, Utils.one)
             (* <= and => *)
         | BinaryOp(BinOp.Leq, r, Identifier(l, uuid)) 
         | BinaryOp(BinOp.Leq, Identifier(l, uuid), r)  
@@ -245,10 +261,10 @@ and create_iterateur for_loop =
     in let step = match it with 
         | UnaryOp(UnOp.PostIncr, Identifier(x, uuid)) 
         | UnaryOp(UnOp.PreIncr, Identifier(x, uuid)) when x = var_name ->
-          (BinOp.Add, one)
+          (BinOp.Add, Utils.one)
         | UnaryOp(UnOp.PostDecr, Identifier(x, uuid)) 
         | UnaryOp(UnOp.PreDecr, Identifier(x, uuid)) when x = var_name ->
-          (BinOp.Sub, one)
+          (BinOp.Sub, Utils.one)
         | Assign(op, Identifier(x, uuid), b) when x = var_name ->
           (op, b)
         | _ -> failwith "wrong step"
@@ -271,7 +287,7 @@ and create_iterateur for_loop =
 
 and get_all_variables program program_rewrote = 
   let tbl = Hashtbl.create 0 in
-  let _ = aux tbl [] [] [] 0 0 program  program_rewrote
+  let _ = aux tbl [] [] [] [] 0 0 program  program_rewrote
   in tbl
 
 

@@ -92,7 +92,22 @@ let test_ineq ?(verbose=true) path =
                   let _ = print_endline @@ "#" ^ key
                   in List.iter (fun l -> print_endline @@ "    " ^ Calcul.pretty_print_arithm l) content
                 ) expr;
-(*              ignore @@ Calcul.generate_constraints (op, expr) *)
+              (
+              let constraints = Calcul.generate_constraints (op, expr)  in
+Hashtbl.iter (fun key content ->              
+               List.iter (fun (op, ineq, content) ->
+          let str = Hashtbl.fold (fun key content b ->
+              b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
+            ) ineq ""
+          in print_endline @@
+          "=>:   " ^
+               "-(" ^key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content ^ ")"
+               ^ Ast.BinOp.pretty_print op ^ str
+                 ) content
+
+)
+constraints
+)
            )
            results
     in ()

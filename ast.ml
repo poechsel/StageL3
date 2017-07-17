@@ -69,6 +69,22 @@ module BinOp = struct
     | And
     | Empty
 
+  let invert o = 
+    match o with
+    | Leq -> Geq
+    | Geq -> Leq
+    | Slt -> Sgt
+    | Sgt -> Slt
+    | x -> x
+
+  let negate o = match o with
+    | Neq -> Eq
+    | Eq -> Neq
+    | Leq -> Sgt
+    | Sgt -> Leq
+    | Slt -> Geq
+    | Geq -> Slt
+
   let pretty_print o = match o with
     | Mul -> "*"
     | Div -> "/"
