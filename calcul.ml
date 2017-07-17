@@ -335,3 +335,30 @@ let rec ineq_normalisation_constraint expr reserved =
     [(op, operate (BinaryOp(BinOp.Sub, expr2, expr1)) reserved)]
 
   | _ -> failwith "unknown operator"
+
+
+(*let generate_constraints (op, ineq)  =
+  let constraints = Hashtbl.create 0 in
+  let append_constraint key content =
+    if Hashtbl.mem constraints key then
+      Hashtbl.replace constraints key (content :: Hashtbl.find constraints key)
+    else
+      Hashtbl.add constraints key [content]
+
+  in let _ = Hashtbl.iter (
+      fun key content ->
+        if key = "" || content == [] then ()
+        else 
+          let ineq' = Hashtbl.copy ineq 
+          in let _ = Hashtbl.remove ineq' key
+(*)          in let str = Hashtbl.fold (fun key content b ->
+              b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
+            ) ineq ""
+          in let _ = print_endline @@
+               "-(" ^key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content ^ ")"
+               ^ BinOp.pretty_print op ^ str
+  *)        in let _ = Hashtbl.add ineq key content
+          in ()
+    ) ineq
+in constraints
+*)

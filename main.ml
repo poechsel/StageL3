@@ -91,7 +91,8 @@ let test_ineq ?(verbose=true) path =
               Hashtbl.iter (fun key content ->
                   let _ = print_endline @@ "#" ^ key
                   in List.iter (fun l -> print_endline @@ "    " ^ Calcul.pretty_print_arithm l) content
-                ) expr
+                ) expr;
+(*              ignore @@ Calcul.generate_constraints (op, expr) *)
            )
            results
     in ()

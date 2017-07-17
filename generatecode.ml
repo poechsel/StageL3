@@ -475,3 +475,10 @@ else name in
     )
     variables
 in Hashtbl.iter (fun a b -> Printf.fprintf out "%s\n" b) tbl
+
+
+
+(* a constrait is a tuple
+   (op, iterator name, right side, denom)
+   It represents iterantor_name * denom OP right side
+*) 
