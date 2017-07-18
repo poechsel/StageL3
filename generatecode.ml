@@ -6,7 +6,7 @@ open Prettyprint
 (* compare to given iterators. 
    We compare them thanks to their uuid
 *)
-let iterators_compare (_, a, _, _, _) (_, b, _, _, _) =
+let iterators_compare (_, a, _) (_, b, _) =
   if a < b then -1
   else if a = b then 0
   else 1
@@ -105,7 +105,7 @@ variables
 let create_it_hashmap ?(filter = fun x -> true) iterators =
       let its = Hashtbl.create (List.length iterators) in
       let _ = List.iter 
-          (fun (name', uuid', _, _, _) ->
+          (fun (name', uuid', _) ->
              if filter uuid' then 
              let base = "it_list[" ^ string_of_int uuid' ^ "]" in
              Hashtbl.add its name' (base ^ ".min", base ^ ".max")
@@ -134,7 +134,7 @@ let get_reindexable_vars variables =
               let reindex = if List.length accessors != 1 then
                   None
                 else 
-                  let its_list = List.map (fun (name, _, _, _, _) -> name) iterators 
+                  let its_list = List.map (fun (name, _, _) -> name) iterators 
                   in let expr = Calcul.operate (List.hd accessors) its_list
                   in if Calcul.is_expr_abi_form expr then
                     Some expr
@@ -145,6 +145,20 @@ let get_reindexable_vars variables =
   in out
 
 
+let iterator_constraint_in_c out target (op, ineq, div) its_names =
+  let ineq_min, ineq_max = expression_to_c ineq its_names
+    in let ineq_min = 
+         Printf.sprintf "(%s)/-(%s)" ineq_min (__print_list Calcul.pretty_print_arithm "+" div)
+    in let ineq_max = 
+         Printf.sprintf "(%s)/-(%s)" ineq_max (__print_list Calcul.pretty_print_arithm "+" div)
+  in match op with
+  | BinOp.Eq ->
+    Printf.fprintf out "%s.min = min(%s.min, %s);\n" target target ineq_min;
+    Printf.fprintf out "%s.max = max(%s.max, %s);\n" target target ineq_max
+  | BinOp.Slt ->
+    Printf.fprintf out "%s.max = min(%s.max, %s);\n" target target ineq_max
+  | _ -> ()
+
 (*
     Given all the variables, generate the code which will compute
    the bounds for the various iterators
@@ -153,16 +167,20 @@ let create_iterators_in_c out variables =
   let iterators = get_iterators_from_variables variables in
 
   let _ = Printf.fprintf out "s_iterators it_list[%d];\n" (List.length iterators) in
-  let _ = List.iter (fun (name, uuid, start, stop, _) ->
+  let _ = List.iter (fun (name, uuid, constraints) ->
       let its = create_it_hashmap iterators ~filter: (fun uuid' -> uuid' < uuid)
           in
       let its_list =  hashtbl_keys its in
-      let start = Calcul.operate start its_list in
+      (*let start = Calcul.operate start its_list in
       let stop = Calcul.operate stop its_list in
-      let target = "it_list[" ^ string_of_int uuid ^ "]" in
-      let _ = Printf.fprintf out "%s.min = %s;\n" target @@ fst @@ expression_to_c start its in
+      *)let target = "it_list[" ^ string_of_int uuid ^ "]" in
+      (*let _ = Printf.fprintf out "%s.min = %s;\n" target @@ fst @@ expression_to_c start its in
       Printf.fprintf out "%s.max = %s;\n" target @@ snd @@ expression_to_c stop its 
-    ) iterators
+      *)
+      List.iter (fun c ->  iterator_constraint_in_c out target c its) constraints
+      
+        
+        ) iterators
   in ()
 
 
@@ -420,7 +438,7 @@ let compute_boundaries_in_c out variables =
        let first_iteration = Hashtbl.create 3 in
          List.iteri (fun i (permissions, iterators, accessors, _) ->
              let its = create_it_hashmap iterators in
-             let its_list = List.map (fun (name, _, _, _, _) -> name) iterators in
+             let its_list = List.map (fun (name, _, _) -> name) iterators in
              let flag = Variables.string_of_rw_flag permissions in 
              let name_struct = "s_" ^ name ^ "_infos" ^ "." ^ flag in
              List.iteri (fun i access ->

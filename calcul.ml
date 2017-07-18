@@ -338,20 +338,13 @@ let rec ineq_normalisation_constraint expr reserved =
 
 
 let generate_constraints (op, ineq)  =
-  let constraints = Hashtbl.create 0 in
-  let append_constraint key content =
-    if Hashtbl.mem constraints key then
-      Hashtbl.replace constraints key (content :: Hashtbl.find constraints key)
-    else
-      Hashtbl.add constraints key [content]
-
-  in let _ = Hashtbl.iter (
-      fun key content ->
-        if key = "" || content == [] then ()
+  Hashtbl.fold (
+      fun key content old ->
+        if key = "" || content == [] then old
         else 
           let ineq' = Hashtbl.copy ineq 
           in let _ = Hashtbl.remove ineq' key
-          in let _ = append_constraint key (op, ineq', content)
+          in (key, op, ineq', content) :: old
 (*          in let str = Hashtbl.fold (fun key content b ->
               b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
             ) ineq ""
@@ -359,7 +352,5 @@ let generate_constraints (op, ineq)  =
                "-(" ^key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content ^ ")"
                ^ BinOp.pretty_print op ^ str
   *)      
-          in ()
-    ) ineq
-in constraints
+    ) ineq []
 

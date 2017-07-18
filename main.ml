@@ -33,18 +33,22 @@ let analyse ?(verbose = true) ?(output_channel = stderr) ast ast_expanded =
 
   (* TODO solve a big bug here. We should do ast_expanded to get all the accessors correct, but beacause it removes '++' and '--' it is not a good thing. Perhaps a merge function ? *)
     let var_access = get_all_variables ast ast_expanded
-    in let _ = debug_access var_access
+    (*in let _ = debug_access var_access
+    *)
     in let var_access = filter_global_variables var_access 
     in let array_summary = Generatecode.get_array_summary var_access
     in let temp = Generatecode.get_reindexable_vars var_access 
-    in let _ = debug_reindexable temp
-    in let _ = List.iter (fun x -> print_endline @@ pretty_print_iterator x) (Generatecode.get_iterators_from_variables var_access)
+      
+      
+      
+      (*in let _ = debug_reindexable temp*)
+    (*in let _ = List.iter (fun x -> print_endline @@ pretty_print_iterator x) (Generatecode.get_iterators_from_variables var_access)*)
     in let _ = Generatecode.create_iterators_in_c output_channel var_access
-    in let _ = Generatecode.generate_bounds_structures output_channel array_summary
+  (*  in let _ = Generatecode.generate_bounds_structures output_channel array_summary
     in let _ = print_endline "\nBOUNDARIES:"
     in let _ = Generatecode.compute_boundaries_in_c output_channel var_access
     in let _ = Generatecode.generate_parallel_loop output_channel ast array_summary
-
+*)
 (*
     in let ast = Generatecode.transform_code_par ast var_access
     in let _ = print_endline @@ pretty_print_ast ast
@@ -93,21 +97,19 @@ let test_ineq ?(verbose=true) path =
                   in List.iter (fun l -> print_endline @@ "    " ^ Calcul.pretty_print_arithm l) content
                 ) expr;
               (
-              let constraints = Calcul.generate_constraints (op, expr)  in
-Hashtbl.iter (fun key content ->              
-               List.iter (fun (op, ineq, content) ->
-          let str = Hashtbl.fold (fun key content b ->
-              b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
-            ) ineq ""
-          in print_endline @@
-          "=>:   " ^
-               "-(" ^key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content ^ ")"
-               ^ Ast.BinOp.pretty_print op ^ str
-                 ) content
+                let constraints = Calcul.generate_constraints (op, expr)  in
+                List.iter (fun (key, op, ineq,  content) ->              
+                        let str = Hashtbl.fold (fun key content b ->
+                            b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
+                          ) ineq ""
+                        in print_endline @@
+                        "=>:   " ^
+                        "-(" ^key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content ^ ")"
+                        ^ Ast.BinOp.pretty_print op ^ str
 
-)
-constraints
-)
+                  )
+                  constraints
+              )
            )
            results
     in ()
@@ -120,8 +122,8 @@ let main () =
     [("-v", Arg.Set verbose, "enable verbose mode");
      ("-O0", Arg.Set o0, "apply optimisation level 0 (only checking for bounds)")]
   in let _ = Arg.parse speclist (fun x -> input_file := x) "Auto paralleliser dummy tool"
-  in test_ineq !input_file;
-(*  in compile !input_file ~optimisation_level:0;*)
+  (*in test_ineq !input_file;*)
+  in compile !input_file ~optimisation_level:0;
   flush stdout;
   flush stderr
 
