@@ -77,6 +77,7 @@ let unop_pure_for_loop op i =
   | _ -> false
 
 let uuid_iterateur = ref 0
+let uuid_constraints = ref 0
 
 
 let pretty_print_iterator it = 
@@ -114,7 +115,7 @@ let rec detect_pure_for_loop program =
    Also creates the new iterators
 *)
 let update_loop_indices loop_indices constraints =
-  let constraints_name = List.map (fun (x, _, _, _) -> x) constraints
+  let constraints_name = List.map (fun (x, _, _, _, _) -> x) constraints
   in let constraints_name = List.sort_uniq Pervasives.compare constraints_name
   in let _ = Printf.printf "comparing " in
   let _ = List.iter (fun (x ) -> Printf.printf "%s " x) constraints_name in
@@ -139,8 +140,8 @@ let update_loop_indices loop_indices constraints =
 
 let append_iterateur_constraints loop_indices constraints =
   List.map (fun (name, uuid, c) ->
-      let temp = List.filter (fun (x, _, _, _) -> x = name) constraints
-      in let temp = List.map (fun (_, a, b, c) -> (a, b, c)) temp
+      let temp = List.filter (fun (x, _, _, _, _) -> x = name) constraints
+      in let temp = List.map (fun (_, x, a, b, c) -> (x, a, b, c)) temp
       in (name, uuid, temp @ c)
 
     ) loop_indices
@@ -249,9 +250,24 @@ let rec get_all_variables program program_rewrote =
       (* we should had the name, but laziness is the winner *)
       aux forloop_list indices_list uuids level permission content content'
     | IfThenElse(_, cond, if_clause, else_clause), IfThenElse(_, cond', if_clause', else_clause') ->
+        let indices = List.map (fun (x, _, _) -> x) forloop_list in
+        let indices = unique_list indices in
+        let constraints = Calcul.ineq_normalisation_constraint cond indices in
+        let constraints = 
+          List.fold_left (fun old cur ->
+          Calcul.generate_constraints cur @ old
+            ) []
+            constraints 
+        in let forloop_list_if = update_loop_indices forloop_list constraints
+            in let forloop_list_if = append_iterateur_constraints forloop_list_if constraints
+
+        in let constraints_neg = List.map Calcul.negate_constraint constraints
+        in let forloop_list_else = update_loop_indices forloop_list constraints_neg
+            in let forloop_list_else = append_iterateur_constraints forloop_list_else constraints_neg
+            in
       aux forloop_list indices_list uuids level permission cond cond';
-      aux forloop_list indices_list uuids level permission if_clause if_clause';
-      aux forloop_list indices_list uuids level permission else_clause else_clause'
+      aux forloop_list_if indices_list uuids level permission if_clause if_clause';
+      aux forloop_list_else indices_list uuids level permission else_clause else_clause'
     | _ -> ()
 
   in let _ = aux tbl  [] [] [] 0 0 program  program_rewrote
@@ -270,7 +286,45 @@ let rec get_all_variables program program_rewrote =
 (* return a triplet (i, start, end, step) if we have a pure for loop.
    i is an iterator going from start to end (included) by a step of step
 *)
+(* TODO change start and end depending on the iterating direction *)
 and create_iterateur for_loop indices =
+        let indices = List.map (fun (x, _, _) -> x) indices in
+        let indices = unique_list indices in
+  match for_loop with
+  | For(Some start, Some end_cond, Some it, stmts) ->
+    let var_name, start = match start with
+      | Declaration(_, [(name, _), _, _, Some start]) -> name, start
+      | Assign(BinOp.Empty, Identifier(name, uuid), start) -> name, start
+      | _ -> failwith "start indices bad formatted"
+    in let stop = match end_cond with
+        | Identifier(x, uuid) when x = var_name -> Constant(CInt(Dec, Num.num_of_int 0, ""))
+        (* i < n *)
+        | BinaryOp(BinOp.Slt, Identifier(r, uuid), l) when r = var_name -> 
+          BinaryOp (BinOp.Sub, l, one)
+        (* n < i *)
+        | BinaryOp(BinOp.Slt, r, Identifier(l, uuid)) when l = var_name -> 
+          BinaryOp (BinOp.Add, r, one)
+        (* i > n *)
+        | BinaryOp(BinOp.Sgt, Identifier(r, uuid), l) when r = var_name -> 
+          BinaryOp (BinOp.Add, l, one)
+		(* n > i *)
+		| BinaryOp(BinOp.Sgt, r, Identifier(l, uuid)) when l = var_name -> 
+	BinaryOp (BinOp.Sub, r, one)
+  (* <= and => *)
+  | BinaryOp(BinOp.Leq, r, Identifier(l, uuid)) 
+  | BinaryOp(BinOp.Leq, Identifier(l, uuid), r)  
+  | BinaryOp(BinOp.Geq, r, Identifier(l, uuid))  
+  | BinaryOp(BinOp.Geq, Identifier(l, uuid), r) when l = var_name -> 
+	r
+  | _ -> let _ = Printf.printf "========ERROR ===========\n%s\n" (pretty_print_ast end_cond) in failwith "not a good stop condition"
+	in let op = match end_cond with | BinaryOp(op, _, _) -> op | _ -> BinOp.Eq
+	in let mone = [Calcul.LC(Constant(CInt(Hex, Num.num_of_int (-1), "")))]
+	in var_name, (var_name, ItStart, BinOp.Eq, Calcul.operate start indices, mone) :: (var_name, ItStop, op, Calcul.operate stop indices, mone) :: []
+
+  | _ -> raise Not_found
+
+
+(*and create_iterateur for_loop indices =
   match for_loop with
   | For(Some start, Some end_cond, Some it, stmts) ->
     let var_name, indices, it = match start with
@@ -280,7 +334,8 @@ and create_iterateur for_loop indices =
         let indices = name :: List.map (fun (x, _, _) -> x) indices in
         let indices = unique_list indices in
         let temp = Calcul.operate start indices in
-        let cons = (name, BinOp.Eq, temp, [Calcul.LC(Constant(CInt(Hex, Num.num_of_int (-1), "")))])
+        let cons = (name, !Calcul.uuid_constraints, BinOp.Eq, temp, [Calcul.LC(Constant(CInt(Hex, Num.num_of_int (-1), "")))])
+		in let _ = incr Calcul.uuid_constraints
         in name, indices, cons
       | _ -> failwith "start indices bad formatted"
     in let constraints = Calcul.ineq_normalisation_constraint end_cond indices
@@ -303,6 +358,8 @@ and create_iterateur for_loop indices =
   | _ -> raise Not_found
 
 
+
+*)
 
 
 

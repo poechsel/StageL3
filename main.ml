@@ -98,7 +98,7 @@ let test_ineq ?(verbose=true) path =
                 ) expr;
               (
                 let constraints = Calcul.generate_constraints (op, expr)  in
-                List.iter (fun (key, op, ineq,  content) ->              
+                List.iter (fun (key, uuid, op, ineq,  content) ->              
                         let str = Hashtbl.fold (fun key content b ->
                             b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
                           ) ineq ""

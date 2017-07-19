@@ -336,6 +336,11 @@ let rec ineq_normalisation_constraint expr reserved =
 
   | _ -> failwith "unknown operator"
 
+let negate_constraint (key, uuid, op, ineq, c) =
+  key, uuid, BinOp.negate op, ineq, c
+
+let uuid_constraints = ref 0
+
 
 let generate_constraints (op, ineq)  =
   Hashtbl.fold (
@@ -344,7 +349,9 @@ let generate_constraints (op, ineq)  =
         else 
           let ineq' = Hashtbl.copy ineq 
           in let _ = Hashtbl.remove ineq' key
-          in (key, op, ineq', content) :: old
+in let temp = !uuid_constraints
+in let _ = incr uuid_constraints
+          in (key, ItUuid temp, op, ineq', content) :: old
 (*          in let str = Hashtbl.fold (fun key content b ->
               b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
             ) ineq ""
