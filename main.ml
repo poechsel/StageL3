@@ -44,16 +44,16 @@ let analyse ?(verbose = true) ?(output_channel = stderr) ast ast_expanded =
       (*in let _ = debug_reindexable temp*)
     (*in let _ = List.iter (fun x -> print_endline @@ pretty_print_iterator x) (Generatecode.get_iterators_from_variables var_access)*)
     in let _ = Generatecode.create_iterators_in_c output_channel var_access
-  (*  in let _ = Generatecode.generate_bounds_structures output_channel array_summary
+    in let _ = Generatecode.generate_bounds_structures output_channel array_summary
     in let _ = print_endline "\nBOUNDARIES:"
     in let _ = Generatecode.compute_boundaries_in_c output_channel var_access
     in let _ = Generatecode.generate_parallel_loop output_channel ast array_summary
-*)
-(*
+
+
     in let ast = Generatecode.transform_code_par ast var_access
     in let _ = print_endline @@ pretty_print_ast ast
     in let _ = Generatecode.generate_transfer_in_openacc output_channel var_access
-  *)  in ()
+    in ()
 
 let compile ?(optimisation_level=0) ?(verbose=true) path =
   begin

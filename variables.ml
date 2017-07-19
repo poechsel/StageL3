@@ -115,18 +115,26 @@ let rec detect_pure_for_loop program =
 *)
 let update_loop_indices loop_indices constraints =
   let constraints_name = List.map (fun (x, _, _, _) -> x) constraints
-  in let loop_indices = List.map (fun (name, uuid, c) ->
+  in let constraints_name = List.sort_uniq Pervasives.compare constraints_name
+  in let _ = Printf.printf "comparing " in
+  let _ = List.iter (fun (x ) -> Printf.printf "%s " x) constraints_name in
+  let _ = Printf.printf "  <=>  " in
+  let _ = List.iter (fun (x, _, _) -> Printf.printf "%s " x) loop_indices in
+  let _ = print_newline () in
+  let loop_indices = List.map (fun (name, uuid, c) ->
       if List.mem name constraints_name then
+        let _ = Printf.printf "updating it\n" in
         let _ = incr uuid_iterateur in
         (name, !uuid_iterateur, c)
       else (name, uuid, c)
     ) loop_indices
-  in let to_add = List.fold_left ( fun prev (name, _, _, _) ->
+  in let to_add = List.fold_left ( fun prev name ->
       if not (List.exists (fun (x, _, _) -> x = name) loop_indices) then
         let _ = incr uuid_iterateur in
+        let _ = Printf.printf "creating it\n" in
         (name, !uuid_iterateur, []) :: prev
       else prev
-    ) [] constraints 
+    ) [] constraints_name 
   in to_add @ loop_indices
 
 let append_iterateur_constraints loop_indices constraints =
