@@ -81,6 +81,18 @@ let parse () = Parser.main Lexer.token lexbuf
 
 
 
+let test_ineq ?(verbose=true) path =
+    let _ = if verbose then print_endline "Parsing file" 
+    in let ast = Parser.main Lexer.token (Lexing.from_channel @@ open_in path) 
+    in let [ast] = ast 
+    in let _ = print_endline @@ pretty_print_ast ast
+    in let results = Calcul.constraints_from_expression ast ["i"; "j"]
+    in let _ = 
+         Calcul.CEnv.iter
+           (fun a b -> print_endline @@ a ^ "  =>      " ^ pexp a b)
+             results
+
+    in ()
 
 
 let main () = 
@@ -91,8 +103,8 @@ let main () =
     [("-v", Arg.Set verbose, "enable verbose mode");
      ("-O0", Arg.Set o0, "apply optimisation level 0 (only checking for bounds)")]
   in let _ = Arg.parse speclist (fun x -> input_file := x) "Auto paralleliser dummy tool"
-  (*in test_ineq !input_file;*)
-  in compile !input_file ~optimisation_level:0;
+  in test_ineq !input_file;
+  (*in compile !input_file ~optimisation_level:0;*)
   flush stdout;
   flush stderr
 

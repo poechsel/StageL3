@@ -373,6 +373,75 @@ in let _ = incr uuid_constraints
     ) ineq []
 
 
+type 'a blabla =
+  | TAnd of 'a blabla * 'a blabla
+  | TOr of 'a blabla * 'a blabla
+  | TVal of 'a
+  | TNone
+
+let __print_list fct sep l =
+  String.concat sep (List.map fct l);;
+
+module CEnv = Map.Make  (String)
+let constraints_from_expression expr reserved =
+  let rec aux expr =
+    match expr with
+    | BinaryOp(BinOp.Or, expr1, expr2) -> 
+      let l = aux expr1 
+      in let l' = aux expr2
+      in CEnv.merge 
+        ( fun key a b ->
+            match (a, b) with
+            | Some a, Some b -> Some (TOr(a, b))
+            | None, Some x -> Some (TOr(TNone, x))
+            | Some x, None -> Some (TOr(x, TNone))
+        ) l l'
+    | BinaryOp(BinOp.And, expr1, expr2) -> 
+      let l = aux expr1 
+      in let l' = aux expr2
+      in CEnv.merge 
+        ( fun key a b ->
+            match (a, b) with
+            | Some a, Some b -> Some (TAnd(a, b))
+            | None, Some x -> Some (TAnd(TNone, x))
+            | Some x, None -> Some (TAnd(x, TNone))
+        ) l l'
+    | BinaryOp(op, expr1, expr2) -> 
+      let ineq = operate (BinaryOp(BinOp.Sub, expr2, expr1)) reserved in
+
+      Hashtbl.fold (
+        fun key content old ->
+          if key = "" || content == [] then old
+          else 
+            let ineq' = Hashtbl.copy ineq 
+            in let _ = Hashtbl.remove ineq' key
+            in CEnv.add key (TVal (op, Hashtbl.copy ineq', content)) old
+      ) ineq CEnv.empty
+  in aux expr
+
+let rec pexp name expr =
+  let pexp = pexp name in
+  match expr with
+  | TNone -> "none"
+  | TAnd(a, b) ->
+    Printf.sprintf "(%s) AND (%s)" 
+      (pexp a)
+      (pexp b)
+  | TOr(a, b) ->
+    Printf.sprintf "(%s) OR (%s)"
+      (pexp a)
+      (pexp b)
+  | TVal (op, ineq, content) ->
+    Printf.sprintf "-(%s) * %s %s %s"
+        (__print_list pretty_print_arithm "+" content)
+        name
+        (BinOp.pretty_print op)
+        (Hashtbl.fold (fun key content b ->
+             if content = [] then b
+             else
+               b ^ (if b = "" then "" else "+") ^ (if key = ""  then "" else key ^ "*") ^ __print_list pretty_print_arithm "+" content
+           ) ineq "")
+
 
 module Interval = struct
   module Bounds = struct
@@ -386,20 +455,15 @@ module Interval = struct
 
     let min l u =
       match (l, u) with
-      | MInft, _ | _, MInft ->
-        MInft
-      | PInft, x | x, PInft ->
-        x
-      | x, y ->
-        Min(x, y)
+      | MInft, _ | _, MInft -> MInft
+      | PInft, x | x, PInft -> x
+      | x, y -> Min(x, y)
+
     let max l u =
       match (l, u) with
-      | PInft, _ | _, PInft ->
-        PInft
-      | MInft, x | x, MInft ->
-        x
-      | x, y ->
-        Max(x, y)
+      | PInft, _ | _, PInft -> PInft
+      | MInft, x | x, MInft -> x
+      | x, y -> Max(x, y)
 
     let rec to_str print_fct l =
       match l with
