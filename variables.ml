@@ -252,16 +252,21 @@ let rec get_all_variables program program_rewrote =
     | IfThenElse(_, cond, if_clause, else_clause), IfThenElse(_, cond', if_clause', else_clause') ->
         let indices = List.map (fun (x, _, _) -> x) forloop_list in
         let indices = unique_list indices in
-        let constraints = Calcul.ineq_normalisation_constraint cond indices in
+        let constraints, constraints_neg = Calcul.ineq_normalisation_constraint cond' indices in
         let constraints = 
           List.fold_left (fun old cur ->
           Calcul.generate_constraints cur @ old
             ) []
             constraints 
+        in let constraints_neg = 
+          List.fold_left (fun old cur ->
+          Calcul.generate_constraints cur @ old
+            ) []
+            constraints_neg
         in let forloop_list_if = update_loop_indices forloop_list constraints
             in let forloop_list_if = append_iterateur_constraints forloop_list_if constraints
 
-        in let constraints_neg = List.map Calcul.negate_constraint constraints
+        in let constraints_neg = List.map Calcul.negate_constraint constraints_neg
         in let forloop_list_else = update_loop_indices forloop_list constraints_neg
             in let forloop_list_else = append_iterateur_constraints forloop_list_else constraints_neg
             in

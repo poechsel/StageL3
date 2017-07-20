@@ -327,14 +327,25 @@ let operate expr reserved =
 
 
 let rec ineq_normalisation_constraint expr reserved =
+  let rec aux expr father =
   match expr with
-  | BinaryOp(BinOp.Or, expr1, expr2) 
+  | BinaryOp(BinOp.Or, expr1, expr2) ->
+    (* or constraints doesn't give any informations in most of the cases *)
+    let l, l' = aux expr1 BinOp.Or
+    in let k, k' = aux expr2 BinOp.Or
+    in l@k, l'@k'
   | BinaryOp(BinOp.And, expr1, expr2) ->
-    ineq_normalisation_constraint expr1 reserved @ ineq_normalisation_constraint expr2 reserved
+    let l, l' = aux expr1 BinOp.And
+    in let k, k' = aux expr2 BinOp.And
+    in l@k, l'@k'
   | BinaryOp(op, expr1, expr2) when BinOp.is_op_comp op ->
-    [(op, operate (BinaryOp(BinOp.Sub, expr2, expr1)) reserved)]
+    let l = [(op, operate (BinaryOp(BinOp.Sub, expr2, expr1)) reserved)]
+    in if father = BinOp.And then
+      l, []
+    else [], l
 
   | _ -> failwith "unknown operator"
+  in aux expr (BinOp.And)
 
 let negate_constraint (key, uuid, op, ineq, c) =
   key, uuid, BinOp.negate op, ineq, c
@@ -361,3 +372,37 @@ in let _ = incr uuid_constraints
   *)      
     ) ineq []
 
+
+
+
+type 'a interval_arithm =
+  | IPInft
+  | IMInft
+  | IMin of 'a interval_arithm * 'a interval_arithm
+  | IMax of 'a interval_arithm * 'a interval_arithm
+  | IVal of 'a
+
+type 'a interval = 'a interval_arithm * 'a interval_arithm
+
+let interval_min l u =
+  match (l, u) with
+  | IMInft, _ | _, IMInft ->
+    IMInft
+  | IPInft, x | x, IPInft ->
+    x
+  | x, y ->
+    IMin(x, y)
+let interval_max l u =
+  match (l, u) with
+  | IPInft, _ | _, IPInft ->
+    IPInft
+  | IMInft, x | x, IMInft ->
+    x
+  | x, y ->
+    IMax(x, y)
+
+let interval_union (l, u) (l', u') =
+  interval_min l l', interval_max u u'
+
+let interval_inter (l, u) (l', u') =
+  interval_max l l', interval_min u u'

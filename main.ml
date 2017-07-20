@@ -82,37 +82,6 @@ let parse () = Parser.main Lexer.token lexbuf
 
 
 
-let test_ineq ?(verbose=true) path =
-    let _ = if verbose then print_endline "Parsing file" 
-    in let ast = Parser.main Lexer.token (Lexing.from_channel @@ open_in path) 
-    in let [ast] = ast 
-    in let _ = print_endline @@ pretty_print_ast ast
-    in let results = Calcul.ineq_normalisation_constraint ast ["i"; "j"]
-    in let _ = 
-         List.iter
-           (fun (op, expr) ->
-              print_endline "===> (new constraint)"; 
-              Hashtbl.iter (fun key content ->
-                  let _ = print_endline @@ "#" ^ key
-                  in List.iter (fun l -> print_endline @@ "    " ^ Calcul.pretty_print_arithm l) content
-                ) expr;
-              (
-                let constraints = Calcul.generate_constraints (op, expr)  in
-                List.iter (fun (key, uuid, op, ineq,  content) ->              
-                        let str = Hashtbl.fold (fun key content b ->
-                            b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
-                          ) ineq ""
-                        in print_endline @@
-                        "=>:   " ^
-                        "-(" ^key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content ^ ")"
-                        ^ Ast.BinOp.pretty_print op ^ str
-
-                  )
-                  constraints
-              )
-           )
-           results
-    in ()
 
 let main () = 
   let verbose = ref false in
