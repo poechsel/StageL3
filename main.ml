@@ -89,7 +89,13 @@ let test_ineq ?(verbose=true) path =
     in let results = Calcul.constraints_from_expression ast ["i"; "j"]
     in let _ = 
          Calcul.CEnv.iter
-           (fun a b -> print_endline @@ a ^ "  =>      " ^ pexp a b)
+           (fun a b -> 
+              List.iter 
+                (fun b ->print_endline @@ a ^ "  =>      " ^ 
+                                          Interval.to_str (fun b ->  pexp a (TVal b)) b ) 
+                                          
+                                          (Calcul.Interval.from_tree b)
+           )
              results
 
     in ()

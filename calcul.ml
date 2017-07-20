@@ -487,6 +487,44 @@ module Interval = struct
     in let su = Bounds.to_str print_fct u
     in Printf.sprintf "[%s  ;   %s]" sl su
 
+  let from_splited_expr (op, expr, content) = 
+    let value = op, expr, content
+    in match op with
+    | BinOp.Eq ->
+      (* a == b is a <= b && b >= a *)
+      (Bounds.MInft, Bounds.Val (BinOp.Leq, expr, content)) :: 
+      (Bounds.Val (BinOp.Geq, expr, content), Bounds.PInft) ::
+      []
+    | BinOp.Neq ->
+      (Bounds.MInft, Bounds.Val (BinOp.Slt, expr, content)) :: 
+      (Bounds.Val (BinOp.Sgt, expr, content), Bounds.PInft) ::
+      []
+    | BinOp.Slt | BinOp.Leq ->
+      (* i < expr *)
+      (Bounds.MInft, Bounds.Val value) ::
+      []
+    | BinOp.Sgt | BinOp.Geq ->
+      (Bounds.Val value, Bounds.PInft) ::
+      []
+                          
+
+  let rec from_tree tree =
+    match tree with
+    | TVal x -> 
+      from_splited_expr x
+    | TNone ->
+      [Bounds.MInft, Bounds.PInft]
+    | TAnd (a, b) ->
+      let l = from_tree a
+      in let l' = from_tree b
+      in List.combine l l'
+         |> List.map (fun (a, b) -> inter a b ) 
+    | TOr (a, b) ->
+      let l = from_tree a
+      in let l' = from_tree b
+      in List.combine l l'
+         |> List.map (fun (a, b) -> union a b ) 
+
 end
 
 
