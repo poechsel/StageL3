@@ -374,35 +374,56 @@ in let _ = incr uuid_constraints
 
 
 
+module Interval = struct
+  module Bounds = struct
+    type 'a t =
+      | PInft
+      | MInft
+      | Min of 'a t * 'a t
+      | Max of 'a t * 'a t
+      | Val of 'a
 
-type 'a interval_arithm =
-  | IPInft
-  | IMInft
-  | IMin of 'a interval_arithm * 'a interval_arithm
-  | IMax of 'a interval_arithm * 'a interval_arithm
-  | IVal of 'a
 
-type 'a interval = 'a interval_arithm * 'a interval_arithm
+    let min l u =
+      match (l, u) with
+      | MInft, _ | _, MInft ->
+        MInft
+      | PInft, x | x, PInft ->
+        x
+      | x, y ->
+        Min(x, y)
+    let max l u =
+      match (l, u) with
+      | PInft, _ | _, PInft ->
+        PInft
+      | MInft, x | x, MInft ->
+        x
+      | x, y ->
+        Max(x, y)
 
-let interval_min l u =
-  match (l, u) with
-  | IMInft, _ | _, IMInft ->
-    IMInft
-  | IPInft, x | x, IPInft ->
-    x
-  | x, y ->
-    IMin(x, y)
-let interval_max l u =
-  match (l, u) with
-  | IPInft, _ | _, IPInft ->
-    IPInft
-  | IMInft, x | x, IMInft ->
-    x
-  | x, y ->
-    IMax(x, y)
+    let rec to_str print_fct l =
+      match l with
+      | Val x -> print_fct x
+      | Min (x, y) -> Printf.sprintf "min(%s, %s)" (to_str print_fct x) (to_str print_fct y)
+      | Max (x, y) -> Printf.sprintf "max(%s, %s)" (to_str print_fct x) (to_str print_fct y)
+      | PInft -> "+infty"
+      | MInft -> "-infty"
 
-let interval_union (l, u) (l', u') =
-  interval_min l l', interval_max u u'
+  end
+  type 'a t = 'a Bounds.t * 'a Bounds.t
 
-let interval_inter (l, u) (l', u') =
-  interval_max l l', interval_min u u'
+  let union (l, u) (l', u') =
+    Bounds.min l l', Bounds.max u u'
+
+  let inter (l, u) (l', u') =
+    Bounds.max l l', Bounds.min u u'
+
+  let to_str print_fct (l, u) =
+    let sl = Bounds.to_str print_fct l
+    in let su = Bounds.to_str print_fct u
+    in Printf.sprintf "[%s  ;   %s]" sl su
+
+end
+
+
+
