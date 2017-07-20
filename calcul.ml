@@ -442,6 +442,12 @@ let rec pexp name expr =
                b ^ (if b = "" then "" else "+") ^ (if key = ""  then "" else key ^ "*") ^ __print_list pretty_print_arithm "+" content
            ) ineq "")
 
+let merge fct l l' =
+    List.fold_left 
+      (fun o x ->
+         o @
+      List.map (fun y -> fct y x ) l'
+      ) [] l
 
 module Interval = struct
   module Bounds = struct
@@ -517,13 +523,11 @@ module Interval = struct
     | TAnd (a, b) ->
       let l = from_tree a
       in let l' = from_tree b
-      in List.combine l l'
-         |> List.map (fun (a, b) -> inter a b ) 
+      in merge inter l l'
     | TOr (a, b) ->
       let l = from_tree a
       in let l' = from_tree b
-      in List.combine l l'
-         |> List.map (fun (a, b) -> union a b ) 
+      in merge union l l'
 
 end
 
