@@ -317,6 +317,7 @@ let is_expr_abi_form expression =
 
 (* finally, do the magic *)
 let operate expr reserved =
+  let _ = Printf.printf "operating on : %s\n" (Prettyprint.pretty_print_ast expr) in
   let expr = expand expr in
   let expr = convert_ast_to_arithms expr reserved in
   let expr = reorient expr reserved in
@@ -349,6 +350,30 @@ let rec ineq_normalisation_constraint expr reserved =
 
 let negate_constraint (key, uuid, op, ineq, c) =
   key, uuid, BinOp.negate op, ineq, c
+
+let rec expand_not_expr expr =
+  match expr with
+  | UnaryOp(UnOp.Not, expr) ->
+    expand_not_expr (negate_expr expr)
+  | UnaryOp(op, expr) ->
+    UnaryOp(op, expand_not_expr expr)
+  | BinaryOp(op, a, b) ->
+    BinaryOp(op, expand_not_expr a, expand_not_expr b)
+  | x -> x
+
+(* not a real inversion *)
+and negate_expr expr = 
+  match expr with
+  | UnaryOp(UnOp.Not, a) ->
+    a
+  | BinaryOp(BinOp.Or, a, b) ->
+    BinaryOp(BinOp.And, negate_expr a, negate_expr b)
+  | BinaryOp(BinOp.And, a, b) ->
+    BinaryOp(BinOp.Or, negate_expr a, negate_expr b)
+
+  | BinaryOp(op, a, b) ->
+    BinaryOp(BinOp.negate op, negate_expr a, negate_expr b)
+  | x -> x
 
 let uuid_constraints = ref 0
 
@@ -384,6 +409,7 @@ let __print_list fct sep l =
 
 module CEnv = Map.Make  (String)
 let constraints_from_expression expr reserved =
+  let expr = expand_not_expr expr in
   let rec aux expr =
     match expr with
     | BinaryOp(BinOp.Or, expr1, expr2) -> 
@@ -411,6 +437,7 @@ let constraints_from_expression expr reserved =
 
       Hashtbl.fold (
         fun key content old ->
+          let _ = print_endline key in
           if key = "" || content == [] then old
           else 
             let ineq' = Hashtbl.copy ineq 
@@ -528,6 +555,8 @@ module Interval = struct
       let l = from_tree a
       in let l' = from_tree b
       in merge union l l'
+
+
 
 end
 

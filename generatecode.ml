@@ -143,34 +143,59 @@ let get_reindexable_vars variables =
 
 let iterator_constraint_in_c out target (uuid, op, ineq, div) its_names =
   let ineq_min, ineq_max = expression_to_c ineq its_names
-    in let ineq_min = 
-         Printf.sprintf "(%s)/-(%s)" ineq_min (__print_list Calcul.pretty_print_arithm "+" div)
-    in let ineq_max = 
-         Printf.sprintf "(%s)/-(%s)" ineq_max (__print_list Calcul.pretty_print_arithm "+" div)
-    in let _ = 
-    Printf.fprintf out "// %s %s\n" (BinOp.pretty_print op) ineq_min ;
+  in let ineq_min = 
+       Printf.sprintf "(%s)/-(%s)" ineq_min (__print_list Calcul.pretty_print_arithm "+" div)
+  in let ineq_max = 
+       Printf.sprintf "(%s)/-(%s)" ineq_max (__print_list Calcul.pretty_print_arithm "+" div)
+  in let _ = 
+       Printf.fprintf out "// %s %s\n" (BinOp.pretty_print op) ineq_min ;
 
-in match uuid with 
-| ItStart -> 
-Printf.fprintf out "%s.min = %s;\n" target @@ ineq_min
-| ItStop ->
-Printf.fprintf out "%s.max = %s;\n" target @@ ineq_max
-| _ -> begin
-  match op with
-  | BinOp.Eq | BinOp.Neq ->
-    Printf.fprintf out "%s.min = min(%s.min, %s);\n" target target ineq_min;
-    Printf.fprintf out "%s.max = max(%s.max, %s);\n" target target ineq_max
-  | BinOp.Slt ->
-    Printf.fprintf out "%s.max = min(%s.max, %s);\n" target target ineq_max
-  | BinOp.Sgt ->
-    Printf.fprintf out "%s.min = max(%s.min, %s);\n" target target ineq_max
-  | BinOp.Leq ->
-(* not sure for the +1 *)
-    Printf.fprintf out "%s.max = min(%s.max, %s+1);\n" target target ineq_max
-  | BinOp.Geq ->
-    Printf.fprintf out "%s.min = max(%s.min, %s+1);\n" target target ineq_max
-  | _ -> ()
-end
+  in match uuid with 
+  | ItStart -> 
+    Printf.fprintf out "%s.min = %s;\n" target @@ ineq_min
+  | ItStop ->
+    Printf.fprintf out "%s.max = %s;\n" target @@ ineq_max
+  | _ -> begin
+      match op with
+      | BinOp.Eq | BinOp.Neq ->
+        Printf.fprintf out "%s.min = min(%s.min, %s);\n" target target ineq_min;
+        Printf.fprintf out "%s.max = max(%s.max, %s);\n" target target ineq_max
+      | BinOp.Slt ->
+        Printf.fprintf out "%s.max = min(%s.max, %s);\n" target target ineq_max
+      | BinOp.Sgt ->
+        Printf.fprintf out "%s.min = max(%s.min, %s);\n" target target ineq_max
+      | BinOp.Leq ->
+        (* not sure for the +1 *)
+        Printf.fprintf out "%s.max = min(%s.max, %s+1);\n" target target ineq_max
+      | BinOp.Geq ->
+        Printf.fprintf out "%s.min = max(%s.min, %s+1);\n" target target ineq_max
+      | _ -> ()
+    end
+
+
+
+
+  let rec code_from_tree out target tree itsname =
+    match tree with
+    | Calcul.TVal (op, expr, const) ->
+      let mi, ma = expression_to_c expr itsname
+      in Printf.sprintf "MAKE_OP_INTERVAL(\"%s\", %s, %s, %s, \"%s\")"
+        (Ast.BinOp.pretty_print op)
+        mi
+        ma
+        (__print_list Calcul.pretty_print_arithm "+" const)
+        target
+    | Calcul.TNone ->
+      Printf.sprintf  "MAKE_FULL_INTERVAL(%s.min, %s.max)"  target target
+    | Calcul.TAnd (a, b) ->
+      let l = code_from_tree out target a itsname
+      in let l' = code_from_tree out target b itsname
+      in Printf.sprintf "INTER_INTERVAL(\n%s,\n%s)" l l'
+
+    | Calcul.TOr (a, b) ->
+      let l = code_from_tree out target a itsname
+      in let l' = code_from_tree out target b itsname
+      in Printf.sprintf "UNION_INTERVAL(\n%s,\n%s)" l l'
 
 (*
     Given all the variables, generate the code which will compute
@@ -183,18 +208,21 @@ let create_iterators_in_c out variables =
   let _ = List.iter (fun (name, uuid, constraints) ->
       let its = create_it_hashmap iterators ~filter: (fun uuid' -> uuid' < uuid)
           in
-      let its_list =  hashtbl_keys its in
+      let its_list =  hashtbl_keys its 
       (*let start = Calcul.operate start its_list in
       let stop = Calcul.operate stop its_list in
-      *)let target = "it_list[" ^ string_of_int uuid ^ "]" in
+      *)in let target = "it_list[" ^ string_of_int uuid ^ "]" 
+          in 
       (*let _ = Printf.fprintf out "%s.min = %s;\n" target @@ fst @@ expression_to_c start its in
       Printf.fprintf out "%s.max = %s;\n" target @@ snd @@ expression_to_c stop its 
       *)
-	let constraints = List.sort (fun (a, _, _ ,_) (b, _, _, _) -> Pervasives.compare a b) constraints in
-      List.iter (fun c ->  iterator_constraint_in_c out target c its) constraints
+          
+          
+          (*let constraints = List.sort (fun (a, _, _ ,_) (b, _, _, _) -> Pervasives.compare a b) constraints in*)
+          List.iter (fun c ->  Printf.fprintf out "%s = %s;\n" target @@ code_from_tree out target c its) (List.rev constraints)
       
         
-        ) iterators
+      ) iterators
   in ()
 
 

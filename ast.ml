@@ -84,6 +84,7 @@ module BinOp = struct
     | Sgt -> Leq
     | Slt -> Geq
     | Geq -> Slt
+    | x -> x
 
   let pretty_print o = match o with
     | Mul -> "*"

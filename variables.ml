@@ -115,7 +115,7 @@ let rec detect_pure_for_loop program =
    Also creates the new iterators
 *)
 let update_loop_indices loop_indices constraints =
-  let constraints_name = List.map (fun (x, _, _, _, _) -> x) constraints
+  let constraints_name = List.map (fun (x, _) -> x) constraints
   in let constraints_name = List.sort_uniq Pervasives.compare constraints_name
   in let _ = Printf.printf "comparing " in
   let _ = List.iter (fun (x ) -> Printf.printf "%s " x) constraints_name in
@@ -140,8 +140,8 @@ let update_loop_indices loop_indices constraints =
 
 let append_iterateur_constraints loop_indices constraints =
   List.map (fun (name, uuid, c) ->
-      let temp = List.filter (fun (x, _, _, _, _) -> x = name) constraints
-      in let temp = List.map (fun (_, x, a, b, c) -> (x, a, b, c)) temp
+      let temp = List.filter (fun (x, _) -> x = name) constraints
+      in let temp = List.map (fun (_, x) -> (x)) temp
       in (name, uuid, temp @ c)
 
     ) loop_indices
@@ -169,7 +169,6 @@ let rec get_all_variables program program_rewrote =
     match program, program_rewrote with
     | Identifier (";", _), _ | Identifier ("", _), _  -> ()
     | Identifier(s, uuid), _ -> 
-      Printf.printf "=> %s : %d\n" s permission;
       add_variable tbl s forloop_list indices_list (uuid :: uuids) (-1) permission
 
     | Declaration (_, l), Declaration(_, l') ->
@@ -196,7 +195,6 @@ let rec get_all_variables program program_rewrote =
     | UnaryOp(UnOp.PreDecr, a), UnaryOp(UnOp.PreDecr, a')
     | UnaryOp(UnOp.PreIncr, a), UnaryOp(UnOp.PreIncr, a')
     | UnaryOp(UnOp.PostIncr, a), UnaryOp(UnOp.PostIncr, a') ->
-      print_endline "ETZYERYERY";
       aux forloop_list indices_list uuids level (permission lor read lor write) a a'
 
     | Access (_, a, _), Access(_, a', _) 
@@ -227,14 +225,17 @@ let rec get_all_variables program program_rewrote =
       aux forloop_list indices_list uuids level permission a a'
 
     | For (a, b, c, d), For (a', b', c', d') ->
+            let _ = print_endline "AZRETERT" in
       let f x x' = match x, x' with | None, _ -> () | Some x, Some x' -> 
         aux forloop_list indices_list uuids (level + 1) permission x x' in
       f a a'; f b b'; f c c'; 
       begin try
+            let _ = print_endline "AZRETERT" in
           (* we create iterators from the expandend expression *)
           let it_name, constraints' = create_iterateur (For(a', b', c', d')) forloop_list
             in let forloop_list = update_loop_indices forloop_list constraints'
             in let forloop_list = append_iterateur_constraints forloop_list constraints'
+            in let _ = print_endline "AZRETERT" 
             (*TODO move content pure loop for index rewriting here *)
             in  aux forloop_list indices_list uuids level permission d d'
 
@@ -250,8 +251,25 @@ let rec get_all_variables program program_rewrote =
       (* we should had the name, but laziness is the winner *)
       aux forloop_list indices_list uuids level permission content content'
     | IfThenElse(_, cond, if_clause, else_clause), IfThenElse(_, cond', if_clause', else_clause') ->
-        let indices = List.map (fun (x, _, _) -> x) forloop_list in
-        let indices = unique_list indices in
+        let indices = List.map (fun (x, _, _) -> x) forloop_list 
+        in let indices = unique_list indices 
+        in let cond_neg = Calcul.negate_expr cond 
+        in let constraints_if = Calcul.CEnv.fold (fun key content old ->
+            (key, content) :: old)
+            (Calcul.constraints_from_expression cond indices)
+            []
+        in let forloop_list_if = update_loop_indices forloop_list constraints_if
+        in let forloop_list_if = append_iterateur_constraints forloop_list_if constraints_if
+
+
+        in let constraints_else = Calcul.CEnv.fold (fun key content old ->
+            (key, content) :: old)
+            (Calcul.constraints_from_expression cond_neg indices)
+            []
+        in let forloop_list_else = update_loop_indices forloop_list constraints_else
+        in let forloop_list_else = append_iterateur_constraints forloop_list_if constraints_else
+               in
+        (*
         let constraints, constraints_neg = Calcul.ineq_normalisation_constraint cond' indices in
         let constraints = 
           List.fold_left (fun old cur ->
@@ -270,7 +288,7 @@ let rec get_all_variables program program_rewrote =
         in let forloop_list_else = update_loop_indices forloop_list constraints_neg
             in let forloop_list_else = append_iterateur_constraints forloop_list_else constraints_neg
             in
-      aux forloop_list indices_list uuids level permission cond cond';
+     *) aux forloop_list indices_list uuids level permission cond cond';
       aux forloop_list_if indices_list uuids level permission if_clause if_clause';
       aux forloop_list_else indices_list uuids level permission else_clause else_clause'
     | _ -> ()
@@ -293,15 +311,15 @@ let rec get_all_variables program program_rewrote =
 *)
 (* TODO change start and end depending on the iterating direction *)
 and create_iterateur for_loop indices =
-        let indices = List.map (fun (x, _, _) -> x) indices in
-        let indices = unique_list indices in
+  let indices = List.map (fun (x, _, _) -> x) indices in
+  let indices = unique_list indices in
   match for_loop with
   | For(Some start, Some end_cond, Some it, stmts) ->
     let var_name, start = match start with
       | Declaration(_, [(name, _), _, _, Some start]) -> name, start
       | Assign(BinOp.Empty, Identifier(name, uuid), start) -> name, start
       | _ -> failwith "start indices bad formatted"
-    in let stop = match end_cond with
+    in let stop = begin match end_cond with
         | Identifier(x, uuid) when x = var_name -> Constant(CInt(Dec, Num.num_of_int 0, ""))
         (* i < n *)
         | BinaryOp(BinOp.Slt, Identifier(r, uuid), l) when r = var_name -> 
@@ -312,19 +330,26 @@ and create_iterateur for_loop indices =
         (* i > n *)
         | BinaryOp(BinOp.Sgt, Identifier(r, uuid), l) when r = var_name -> 
           BinaryOp (BinOp.Add, l, one)
-		(* n > i *)
-		| BinaryOp(BinOp.Sgt, r, Identifier(l, uuid)) when l = var_name -> 
-	BinaryOp (BinOp.Sub, r, one)
-  (* <= and => *)
-  | BinaryOp(BinOp.Leq, r, Identifier(l, uuid)) 
-  | BinaryOp(BinOp.Leq, Identifier(l, uuid), r)  
-  | BinaryOp(BinOp.Geq, r, Identifier(l, uuid))  
-  | BinaryOp(BinOp.Geq, Identifier(l, uuid), r) when l = var_name -> 
-	r
-  | _ -> let _ = Printf.printf "========ERROR ===========\n%s\n" (pretty_print_ast end_cond) in failwith "not a good stop condition"
-	in let op = match end_cond with | BinaryOp(op, _, _) -> op | _ -> BinOp.Eq
-	in let mone = [Calcul.LC(Constant(CInt(Hex, Num.num_of_int (-1), "")))]
-	in var_name, (var_name, ItStart, BinOp.Eq, Calcul.operate start indices, mone) :: (var_name, ItStop, op, Calcul.operate stop indices, mone) :: []
+        (* n > i *)
+        | BinaryOp(BinOp.Sgt, r, Identifier(l, uuid)) when l = var_name -> 
+          BinaryOp (BinOp.Sub, r, one)
+        (* <= and => *)
+        | BinaryOp(BinOp.Leq, r, Identifier(l, uuid)) 
+        | BinaryOp(BinOp.Leq, Identifier(l, uuid), r)  
+        | BinaryOp(BinOp.Geq, r, Identifier(l, uuid))  
+        | BinaryOp(BinOp.Geq, Identifier(l, uuid), r) when l = var_name -> 
+          r
+        | _ -> let _ = Printf.printf "========ERROR ===========\n%s\n" (pretty_print_ast end_cond) in failwith "not a good stop condition"
+            end
+    in let op = match end_cond with | BinaryOp(op, _, _) -> op | _ -> BinOp.Eq
+    in let mone = [Calcul.LC(Constant(CInt(Hex, Num.num_of_int (-1), "")))]
+    in let expr = BinaryOp(BinOp.And, BinaryOp(BinOp.Eq, Identifier(var_name, -1), start),
+                           BinaryOp(BinOp.Eq, Identifier(var_name, -1), stop))
+
+    in let temp = Calcul.constraints_from_expression expr (var_name::indices)
+    in let _ = Calcul.CEnv.iter (fun k c -> print_endline k) temp
+    in var_name, [var_name, Calcul.CEnv.find var_name temp]
+  (*	in var_name, (var_name, ItStart, BinOp.Eq, Calcul.operate start indices, mone) :: (var_name, ItStop, op, Calcul.operate stop indices, mone) :: []*)
 
   | _ -> raise Not_found
 

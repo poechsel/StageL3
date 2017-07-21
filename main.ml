@@ -109,8 +109,8 @@ let main () =
     [("-v", Arg.Set verbose, "enable verbose mode");
      ("-O0", Arg.Set o0, "apply optimisation level 0 (only checking for bounds)")]
   in let _ = Arg.parse speclist (fun x -> input_file := x) "Auto paralleliser dummy tool"
-  in test_ineq !input_file;
-  (*in compile !input_file ~optimisation_level:0;*)
+  (*in test_ineq !input_file;*)
+  in compile !input_file ~optimisation_level:0;
   flush stdout;
   flush stderr
 
