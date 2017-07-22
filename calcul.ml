@@ -52,8 +52,8 @@ let rec expr_find expr w =
   | _ -> false
 
 let rec arithm_find expr w =
-  let aux x = arithm_find x w in
-  match expr with
+  let aux x = arithm_find x w 
+  in match expr with
   | LMul l
   | LAdd l ->
     List.exists aux l
@@ -93,39 +93,39 @@ let rec expand expr = match expr with
   | BinaryOp(op1, BinaryOp(op2, a, b), BinaryOp(op3, c, d)) 
     when is_mul_class op1 && is_add_class op2 && is_add_class op3 ->
 
-    let a = expand a in
-    let b = expand b in
-    let c = expand c in 
-    let d = expand d in
-    expand @@ BinaryOp(op3, 
-                       BinaryOp(op2,
-                                BinaryOp(op1, a, c),
-                                BinaryOp(op1, b, c)),
-                       BinaryOp(op2,
-                                BinaryOp(op1, a, d),
-                                BinaryOp(op1, b, d))
-                      )
+    let a = expand a 
+    in let b = expand b 
+    in let c = expand c 
+    in let d = expand d 
+    in expand @@ BinaryOp(op3, 
+                          BinaryOp(op2,
+                                   BinaryOp(op1, a, c),
+                                   BinaryOp(op1, b, c)),
+                          BinaryOp(op2,
+                                   BinaryOp(op1, a, d),
+                                   BinaryOp(op1, b, d))
+                         )
 
   | BinaryOp(op1, BinaryOp(op2, a, b), c) 
     when (is_mul_class op1 || BinOp.Div == op1) && is_add_class op2 ->
 
-    let a = expand a in
-    let b = expand b in
-    let c = expand c in 
-    expand @@ BinaryOp(op2,
-                       BinaryOp(op1, a, c),
-                       BinaryOp(op1, b, c)
-                      )
+    let a = expand a 
+    in let b = expand b
+    in let c = expand c 
+    in expand @@ BinaryOp(op2,
+                          BinaryOp(op1, a, c),
+                          BinaryOp(op1, b, c)
+                         )
 
   | BinaryOp(op1, c, BinaryOp(op2, a, b)) 
     when is_mul_class op1 && is_add_class op2 ->
-    let a = expand a in
-    let b = expand b in
-    let c = expand c in 
-    expand @@ BinaryOp(op2,
-                       BinaryOp(op1, c, a),
-                       BinaryOp(op1, c, b)
-                      )
+    let a = expand a
+    in let b = expand b 
+    in let c = expand c  
+    in expand @@ BinaryOp(op2,
+                          BinaryOp(op1, c, a),
+                          BinaryOp(op1, c, b)
+                         )
 
   | BinaryOp(op, a, b) ->
     BinaryOp(op, expand a, expand b)
@@ -152,18 +152,18 @@ let rec convert_ast_to_arithms expr reserved =
   let rec convert_ast_to_arithms expr =
     match expr with
     | BinaryOp(op, a, b) when is_add_class op ->
-      let a = convert_ast_to_arithms a in
-      let b = convert_ast_to_arithms b in
-      let b = if op = BinOp.Sub then export_minus b else b in
-      begin match a, b with
+      let a = convert_ast_to_arithms a 
+      in let b = convert_ast_to_arithms b 
+      in let b = if op = BinOp.Sub then export_minus b else b 
+      in begin match a, b with
         | LAdd l, LAdd l' -> LAdd (l @ l')
         | b, LAdd l | LAdd l, b -> LAdd (b :: l)
         | a, b -> LAdd [a; b]
       end
     | BinaryOp(BinOp.Mul, a, b) ->
-      let a = convert_ast_to_arithms a in
-      let b = convert_ast_to_arithms b in
-      begin match a, b with
+      let a = convert_ast_to_arithms a 
+      in let b = convert_ast_to_arithms b 
+      in begin match a, b with
         | LMul l, LMul l' -> LMul (l @ l')
         | b, LMul l | LMul l, b -> LMul (b :: l)
         | a, b -> LMul [a; b]
@@ -199,18 +199,19 @@ let rec is_unop_chain expr =
 let compare a b reserved =
   match (a, b) with
   | LUnop(op, expr), b ->
-    let temp = is_unop_chain expr in
-    begin match temp with 
+    let temp = is_unop_chain expr
+    in begin match temp with 
       | Some a when List.mem a reserved -> -1
       | _ -> 0
     end
   | a, LUnop(op, expr) ->
-    let temp = is_unop_chain expr in
-    begin match temp with 
+    let temp = is_unop_chain expr 
+    in begin match temp with 
       | Some a when List.mem a reserved -> 1
       | _ -> 0
     end
-  | LC(Identifier(a, _)), LC(Identifier(b, _)) when List.mem a reserved && List.mem b reserved -> Pervasives.compare a b
+  | LC(Identifier(a, _)), LC(Identifier(b, _)) when List.mem a reserved && List.mem b reserved -> 
+    Pervasives.compare a b
   | LC(Identifier (a, _)), b when List.mem a reserved -> -1
   | a, LC(Identifier (b, _)) when List.mem b reserved -> 1
   | _ -> 0
@@ -218,15 +219,15 @@ let compare a b reserved =
 
 (* reorient to put the reserved name near the front *)
 let rec reorient expr reserved =
-  let aux x = reorient x reserved in 
-  let compare a b = compare a b reserved in
-  match expr with
+  let aux x = reorient x reserved 
+  in let compare a b = compare a b reserved 
+  in match expr with
   | LAdd l ->
-    let l = List.map aux l in
-    LAdd (List.sort compare l)
+    let l = List.map aux l 
+    in LAdd (List.sort compare l)
   | LMul l ->
-    let l = List.map aux l in
-    LMul (List.sort compare l)
+    let l = List.map aux l
+    in LMul (List.sort compare l)
   | LUnop (op, a) -> LUnop(op, aux a)
   | _ -> expr
 
@@ -238,8 +239,7 @@ let rec move_unop_sub expr =
     | LUnop(UnOp.Sub, a) :: n :: l -> a :: aux (LUnop(UnOp.Sub, n) :: l)
     | LUnop(UnOp.Sub, a) :: [] -> [a; LUnop(UnOp.Sub, LC(one))]
     | x :: l -> x :: aux l
-  in
-  match expr with
+  in match expr with
   | LMul l ->
     LMul (List.map move_unop_sub (aux l))
   | LAdd l ->
@@ -273,8 +273,8 @@ let remove_ident_from_expr expr w =
 
 (* add a product of term to the list *)
 let add_hashmp tbl name x =
-  let x = if x = LMul([]) then LMul([LC(one)]) else x in
-  if Hashtbl.mem tbl name then
+  let x = if x = LMul([]) then LMul([LC(one)]) else x 
+  in if Hashtbl.mem tbl name then
     Hashtbl.replace tbl name (x :: Hashtbl.find tbl name)
   else Hashtbl.add tbl name [x]
 
@@ -287,15 +287,15 @@ let get_coefficients expr reserved =
     | LMul l -> [l]
     | _ -> [[expr]]
   in
-  let tbl = Hashtbl.create 0 in
-  let _ = List.iter (fun x -> Hashtbl.add tbl x []) reserved in
-  let _ = List.iter (
+  let tbl = Hashtbl.create 0 
+  in let _ = List.iter (fun x -> Hashtbl.add tbl x []) reserved 
+  in let _ = List.iter (
       fun x ->
-        let test = ref false in 
-        let _ = List.iter (fun name ->
+        let test = ref false 
+        in let _ = List.iter (fun name ->
             if arithm_find (LMul(x)) name then
-              let _ = test := true in
-              add_hashmp tbl name (LMul (remove_ident_from_expr x name))
+              let _ = test := true 
+              in add_hashmp tbl name (LMul (remove_ident_from_expr x name))
           ) reserved
         in if !test = false then
           add_hashmp tbl "" (LMul x)
@@ -306,46 +306,46 @@ let get_coefficients expr reserved =
 
 
 (* check if an expression is in the form a + i b 
-the expression is given in the form of operate
+   the expression is given in the form of operate
 *)
 let is_expr_abi_form expression =
-  let offset = if Hashtbl.mem expression "" then 1 else 0 in
-  Hashtbl.length expression <= 1 + offset
+  let offset = if Hashtbl.mem expression "" then 1 else 0 
+  in Hashtbl.length expression <= 1 + offset
 
 
 
 
 (* finally, do the magic *)
 let operate expr reserved =
-  let _ = Printf.printf "operating on : %s\n" (Prettyprint.pretty_print_ast expr) in
-  let expr = expand expr in
-  let expr = convert_ast_to_arithms expr reserved in
-  let expr = reorient expr reserved in
-  let expr = move_unop_sub expr  in
-  let results = get_coefficients expr reserved in
-  results
+  let _ = Printf.printf "operating on : %s\n" (Prettyprint.pretty_print_ast expr) 
+  in let expr = expand expr 
+  in let expr = convert_ast_to_arithms expr reserved 
+  in let expr = reorient expr reserved 
+  in let expr = move_unop_sub expr  
+  in let results = get_coefficients expr reserved 
+  in results
 
 
 
 let rec ineq_normalisation_constraint expr reserved =
   let rec aux expr father =
-  match expr with
-  | BinaryOp(BinOp.Or, expr1, expr2) ->
-    (* or constraints doesn't give any informations in most of the cases *)
-    let l, l' = aux expr1 BinOp.Or
-    in let k, k' = aux expr2 BinOp.Or
-    in l@k, l'@k'
-  | BinaryOp(BinOp.And, expr1, expr2) ->
-    let l, l' = aux expr1 BinOp.And
-    in let k, k' = aux expr2 BinOp.And
-    in l@k, l'@k'
-  | BinaryOp(op, expr1, expr2) when BinOp.is_op_comp op ->
-    let l = [(op, operate (BinaryOp(BinOp.Sub, expr2, expr1)) reserved)]
-    in if father = BinOp.And then
-      l, []
-    else [], l
+    match expr with
+    | BinaryOp(BinOp.Or, expr1, expr2) ->
+      (* or constraints doesn't give any informations in most of the cases *)
+      let l, l' = aux expr1 BinOp.Or
+      in let k, k' = aux expr2 BinOp.Or
+      in l@k, l'@k'
+    | BinaryOp(BinOp.And, expr1, expr2) ->
+      let l, l' = aux expr1 BinOp.And
+      in let k, k' = aux expr2 BinOp.And
+      in l@k, l'@k'
+    | BinaryOp(op, expr1, expr2) when BinOp.is_op_comp op ->
+      let l = [(op, operate (BinaryOp(BinOp.Sub, expr2, expr1)) reserved)]
+      in if father = BinOp.And then
+        l, []
+      else [], l
 
-  | _ -> failwith "unknown operator"
+    | _ -> failwith "unknown operator"
   in aux expr (BinOp.And)
 
 let negate_constraint (key, uuid, op, ineq, c) =
@@ -380,22 +380,22 @@ let uuid_constraints = ref 0
 
 let generate_constraints (op, ineq)  =
   Hashtbl.fold (
-      fun key content old ->
-        if key = "" || content == [] then old
-        else 
-          let ineq' = Hashtbl.copy ineq 
-          in let _ = Hashtbl.remove ineq' key
-in let temp = !uuid_constraints
-in let _ = incr uuid_constraints
-          in (key, ItUuid temp, op, ineq', content) :: old
-(*          in let str = Hashtbl.fold (fun key content b ->
-              b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
-            ) ineq ""
-          in let _ = print_endline @@
-               "-(" ^key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content ^ ")"
-               ^ BinOp.pretty_print op ^ str
-  *)      
-    ) ineq []
+    fun key content old ->
+      if key = "" || content == [] then old
+      else 
+        let ineq' = Hashtbl.copy ineq 
+        in let _ = Hashtbl.remove ineq' key
+        in let temp = !uuid_constraints
+        in let _ = incr uuid_constraints
+        in (key, ItUuid temp, op, ineq', content) :: old
+        (*          in let str = Hashtbl.fold (fun key content b ->
+                      b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
+                    ) ineq ""
+                    in let _ = print_endline @@
+                       "-(" ^key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content ^ ")"
+                       ^ BinOp.pretty_print op ^ str
+        *)      
+  ) ineq []
 
 
 type 'a blabla =
@@ -409,46 +409,50 @@ let __print_list fct sep l =
 
 module CEnv = Map.Make  (String)
 let constraints_from_expression expr reserved =
-  let expr = expand_not_expr expr in
-  let rec aux expr =
-    match expr with
-    | BinaryOp(BinOp.Or, expr1, expr2) -> 
-      let l = aux expr1 
-      in let l' = aux expr2
-      in CEnv.merge 
-        ( fun key a b ->
-            match (a, b) with
-            | Some a, Some b -> Some (TOr(a, b))
-            | None, Some x -> Some (TOr(TNone, x))
-            | Some x, None -> Some (TOr(x, TNone))
-        ) l l'
-    | BinaryOp(BinOp.And, expr1, expr2) -> 
-      let l = aux expr1 
-      in let l' = aux expr2
-      in CEnv.merge 
-        ( fun key a b ->
-            match (a, b) with
-            | Some a, Some b -> Some (TAnd(a, b))
-            | None, Some x -> Some (TAnd(TNone, x))
-            | Some x, None -> Some (TAnd(x, TNone))
-        ) l l'
-    | BinaryOp(op, expr1, expr2) -> 
-      let ineq = operate (BinaryOp(BinOp.Sub, expr2, expr1)) reserved in
+  let expr = expand_not_expr expr 
+  in let rec aux expr =
+       match expr with
+       | BinaryOp(BinOp.Or, expr1, expr2) -> 
+         let l = aux expr1 
+         in let l' = aux expr2
+         in CEnv.merge 
+           ( fun key a b ->
+               match (a, b) with
+               | Some a, Some b -> Some (TOr(a, b))
+               | None, Some x -> Some (TOr(TNone, x))
+               | Some x, None -> Some (TOr(x, TNone))
+               | _ -> None
+           ) l l'
+       | BinaryOp(BinOp.And, expr1, expr2) -> 
+         let l = aux expr1 
+         in let l' = aux expr2
+         in CEnv.merge 
+           ( fun key a b ->
+               match (a, b) with
+               | Some a, Some b -> Some (TAnd(a, b))
+               | None, Some x -> Some (TAnd(TNone, x))
+               | Some x, None -> Some (TAnd(x, TNone))
+               | _ -> None
+           ) l l'
+       | BinaryOp(op, expr1, expr2) when
+           List.mem op [BinOp.Eq; BinOp.Neq; BinOp.Geq; BinOp.Slt; BinOp.Sgt; BinOp.Leq]-> 
+         let ineq = operate (BinaryOp(BinOp.Sub, expr2, expr1)) reserved 
 
-      Hashtbl.fold (
-        fun key content old ->
-          let _ = print_endline key in
-          if key = "" || content == [] then old
-          else 
-            let ineq' = Hashtbl.copy ineq 
-            in let _ = Hashtbl.remove ineq' key
-            in CEnv.add key (TVal (op, Hashtbl.copy ineq', content)) old
-      ) ineq CEnv.empty
+         in Hashtbl.fold (
+           fun key content old ->
+             let _ = print_endline key 
+             in if key = "" || content == [] then old
+             else 
+               let ineq' = Hashtbl.copy ineq 
+               in let _ = Hashtbl.remove ineq' key
+               in CEnv.add key (TVal (op, Hashtbl.copy ineq', content)) old
+         ) ineq CEnv.empty
+       | _ -> failwith "not happening!"
   in aux expr
 
 let rec pexp name expr =
-  let pexp = pexp name in
-  match expr with
+  let pexp = pexp name 
+  in match expr with
   | TNone -> "none"
   | TAnd(a, b) ->
     Printf.sprintf "(%s) AND (%s)" 
@@ -460,21 +464,21 @@ let rec pexp name expr =
       (pexp b)
   | TVal (op, ineq, content) ->
     Printf.sprintf "-(%s) * %s %s %s"
-        (__print_list pretty_print_arithm "+" content)
-        name
-        (BinOp.pretty_print op)
-        (Hashtbl.fold (fun key content b ->
-             if content = [] then b
-             else
-               b ^ (if b = "" then "" else "+") ^ (if key = ""  then "" else key ^ "*") ^ __print_list pretty_print_arithm "+" content
-           ) ineq "")
+      (__print_list pretty_print_arithm "+" content)
+      name
+      (BinOp.pretty_print op)
+      (Hashtbl.fold (fun key content b ->
+           if content = [] then b
+           else
+             b ^ (if b = "" then "" else "+") ^ (if key = ""  then "" else key ^ "*") ^ __print_list pretty_print_arithm "+" content
+         ) ineq "")
 
 let merge fct l l' =
-    List.fold_left 
-      (fun o x ->
-         o @
-      List.map (fun y -> fct y x ) l'
-      ) [] l
+  List.fold_left 
+    (fun o x ->
+       o @
+       List.map (fun y -> fct y x ) l'
+    ) [] l
 
 module Interval = struct
   module Bounds = struct
@@ -539,7 +543,7 @@ module Interval = struct
     | BinOp.Sgt | BinOp.Geq ->
       (Bounds.Val value, Bounds.PInft) ::
       []
-                          
+
 
   let rec from_tree tree =
     match tree with

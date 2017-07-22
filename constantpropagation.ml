@@ -56,27 +56,27 @@ end
 
 
 let constant_propagation expr = 
-  let env = Env.empty in
-  let rec deal_with_list l env =
-    match l with
-    | [] -> [], env
-    | x :: l ->
-      let x', env' = propagate env x in
-      let l', env' = deal_with_list l env' in
-      (x'::l'), env'
+  let env = Env.empty 
+  in let rec deal_with_list l env =
+       match l with
+       | [] -> [], env
+       | x :: l ->
+         let x', env' = propagate env x 
+         in let l', env' = deal_with_list l env' 
+         in (x'::l'), env'
   and propagate env expr =
     match expr with
     | Assign(BinOp.Empty, a, b) ->
-      let b', env' = propagate env b in
-      begin
+      let b', env' = propagate env b 
+      in begin
         match a with
         | Identifier (name, _) ->
-          let env' = Env.add_binding env' name b' in
-          Assign(BinOp.Empty, a, b'), env'
+          let env' = Env.add_binding env' name b' 
+          in Assign(BinOp.Empty, a, b'), env'
         | _ -> 
-          let a, env' = propagate env' a in
-          let _ = Printf.printf "Didn't knew what to do with %s = ...\n" (pretty_print_ast a) in
-          Assign(BinOp.Empty, a, b'), env'
+          let a, env' = propagate env' a 
+          in let _ = Printf.printf "Didn't knew what to do with %s = ...\n" (pretty_print_ast a) 
+          in Assign(BinOp.Empty, a, b'), env'
       end
 
     | Identifier (name, uuid) ->
@@ -86,20 +86,20 @@ let constant_propagation expr =
       Constant c, env
 
     | BinaryOp(op, a, b) ->
-      let a, env = propagate env a in
-      let b, env = propagate env b in
-      let out = BinaryOp(op, a, b) in
-      out, env
+      let a, env = propagate env a 
+      in let b, env = propagate env b 
+      in let out = BinaryOp(op, a, b)
+      in out, env
 
     | Call(what, l) ->
-      let l, env = deal_with_list l env in
-      Call (what, l), env
+      let l, env = deal_with_list l env 
+      in Call (what, l), env
     | Bloc l ->
-      let l, env = deal_with_list l env in
-      Bloc l, env
+      let l, env = deal_with_list l env 
+      in Bloc l, env
     | InitializerList l ->
-      let l, env = deal_with_list l env in
-      InitializerList l, env
+      let l, env = deal_with_list l env
+      in InitializerList l, env
     | Expression l ->
       let l, env = deal_with_list l env in
       Expression l, env
@@ -112,14 +112,13 @@ let constant_propagation expr =
           let ast, env = match ast with
             | None -> None, env
             | Some x ->
-              let x', env' = propagate env x in
-              let env' = Env.add_binding env' name x' in
-              Some x', env'
-          in
-          let l', env' = analyse l env in
-          ((name, uuid), declspec, decl, ast)::l', env'
-      in let l, env = analyse l env in
-      Declaration (type_name, l), env
+              let x', env' = propagate env x 
+              in let env' = Env.add_binding env' name x' 
+              in Some x', env'
+          in let l', env' = analyse l env 
+          in ((name, uuid), declspec, decl, ast)::l', env'
+      in let l, env = analyse l env 
+      in Declaration (type_name, l), env
 
 
 
@@ -127,11 +126,11 @@ let constant_propagation expr =
       begin
         match a with
         | Identifier (name, _) ->
-          let a, env = propagate env a in
-          let _ = print_endline @@ pretty_print_ast a in
-          let a' = BinaryOp(BinOp.Add, a, one) in
-          let env = Env.add_binding env name a' in
-          a, env
+          let a, env = propagate env a 
+          in let _ = print_endline @@ pretty_print_ast a 
+          in let a' = BinaryOp(BinOp.Add, a, one) 
+          in let env = Env.add_binding env name a' 
+          in a, env
         | _ ->
           failwith "didn't knew you could postincr dat"
       end
@@ -139,10 +138,10 @@ let constant_propagation expr =
       begin
         match a with
         | Identifier (name, _) ->
-          let a, env = propagate env a in
-          let a' = BinaryOp(BinOp.Sub, a, one) in
-          let env = Env.add_binding env name a' in
-          a, env
+          let a, env = propagate env a 
+          in let a' = BinaryOp(BinOp.Sub, a, one) 
+          in let env = Env.add_binding env name a' 
+          in a, env
         | _ ->
           failwith "didn't knew you could postincr dat"
       end
@@ -150,10 +149,10 @@ let constant_propagation expr =
       begin
         match a with
         | Identifier (name, uuid) ->
-          let a, env = propagate env a in
-          let a = BinaryOp(BinOp.Add, a, one) in
-          let env = Env.add_binding env name a in
-          a, env
+          let a, env = propagate env a
+          in let a = BinaryOp(BinOp.Add, a, one) 
+          in let env = Env.add_binding env name a 
+          in a, env
         | _ ->
           failwith "didn't knew you could preincr dat"
       end
@@ -161,59 +160,59 @@ let constant_propagation expr =
       begin
         match a with
         | Identifier (name, uuid) ->
-          let a, env = propagate env a in
-          let a = BinaryOp(BinOp.Sub, a, one) in
-          let env = Env.add_binding env name a in
-          a, env
+          let a, env = propagate env a 
+          in let a = BinaryOp(BinOp.Sub, a, one) 
+          in let env = Env.add_binding env name a 
+          in a, env
         | _ ->
           failwith "didn't knew you could preincr dat"
       end
 
     | UnaryOp (op, a) ->
-      let a, env = propagate env a in
-      UnaryOp(op, a), env
+      let a, env = propagate env a 
+      in UnaryOp(op, a), env
 
     | Label(lbl, content) ->
-      let content, env' = propagate env content in
-      let env' = Env.restrict env' env in
-      let env = Env.unify env' env in
-      Label(lbl, content), env
+      let content, env' = propagate env content 
+      in let env' = Env.restrict env' env 
+      in let env = Env.unify env' env 
+      in Label(lbl, content), env
     | Default content ->
-      let content, env' = propagate env content in
-      let env' = Env.restrict env' env in
-      let env = Env.unify env' env in
-      Default content, env
+      let content, env' = propagate env content 
+      in let env' = Env.restrict env' env 
+      in let env = Env.unify env' env 
+      in Default content, env
 
     | Cast (t, expr) ->
-      let expr, env = propagate env expr in
-      Cast (t, expr), env
+      let expr, env = propagate env expr 
+      in Cast (t, expr), env
 
     | Case(cond, content) ->
-      let cond, env = propagate env cond in
-      let content, env' = propagate env content in
-      let env' = Env.restrict env' env in
-      let env = Env.unify env' env in
-      Case(cond, content), env
+      let cond, env = propagate env cond 
+      in let content, env' = propagate env content 
+      in let env' = Env.restrict env' env 
+      in let env = Env.unify env' env 
+      in Case(cond, content), env
 
     | Return (Some a) ->
-      let a, env = propagate env a in
-      Return (Some a), env
+      let a, env = propagate env a 
+      in Return (Some a), env
 
     | Access(Array, what, where) ->
-      let where, env = propagate env where in
-      let what, env = propagate env what in
-      Access(Array, what, where), env
+      let where, env = propagate env where 
+      in let what, env = propagate env what 
+      in Access(Array, what, where), env
 
 
     | IfThenElse(a, cond, s_if, s_else) ->
-      let cond, env = propagate env cond in
-      let s_if, env' = propagate env s_if in
-      let s_else, env'' = propagate env s_else in
+      let cond, env = propagate env cond 
+      in let s_if, env' = propagate env s_if 
+      in let s_else, env'' = propagate env s_else 
 
-      let env' = Env.restrict env' env in
-      let env'' = Env.restrict env'' env in
-      let env = Env.unify env' env'' in
-      IfThenElse(a, cond, s_if, s_else), env
+      in let env' = Env.restrict env' env 
+      in let env'' = Env.restrict env'' env 
+      in let env = Env.unify env' env'' 
+      in IfThenElse(a, cond, s_if, s_else), env
 
     | For(a, b, c, content) ->
       (*let aux env = function
@@ -223,30 +222,30 @@ let constant_propagation expr =
         let a, env = aux env a in
         let b, env = aux env b in
         let c, env = aux env c in
-      *) let content, env' = propagate env content in
-      let env' = Env.restrict env' env in
-      let env = Env.unify env env' in
-      For(a, b, c, content), env
+      *) let content, env' = propagate env content 
+      in let env' = Env.restrict env' env 
+      in let env = Env.unify env env' 
+      in For(a, b, c, content), env
 
     | Switch (cond, content) ->
-      let cond, env = propagate env cond in
-      let content, env' = propagate env content in
-      let env' = Env.restrict env' env in
-      let env = Env.unify env env' in
-      Switch (cond, content), env
+      let cond, env = propagate env cond 
+      in let content, env' = propagate env content 
+      in let env' = Env.restrict env' env 
+      in let env = Env.unify env env' 
+      in Switch (cond, content), env
 
     | While(DoWhile, cond, content) ->
-      let content, env' = propagate env content in
-      let cond, env = propagate env cond in
-      let env' = Env.restrict env' env in
-      let env = Env.unify env env' in
-      While(DoWhile, cond, content), env
+      let content, env' = propagate env content 
+      in let cond, env = propagate env cond 
+      in let env' = Env.restrict env' env 
+      in let env = Env.unify env env' 
+      in While(DoWhile, cond, content), env
     | While(NoWhile, cond, content) ->
-      let content, env' = propagate env content in
-      let cond, env' = propagate env' cond in
-      let env' = Env.restrict env' env in
-      let env = Env.unify env env' in
-      While(NoWhile, cond, content), env
+      let content, env' = propagate env content 
+      in let cond, env' = propagate env' cond 
+      in let env' = Env.restrict env' env 
+      in let env = Env.unify env env' 
+      in While(NoWhile, cond, content), env
 
 
 

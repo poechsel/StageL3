@@ -175,7 +175,9 @@ let rec get_all_variables program program_rewrote =
       List.iter2 (fun ((s, uuid), _, d, a) (_, _, _, a')->
           let f_a = match d with | DeArray _ -> is_array | DeFunction _ -> is_function | _ -> 0 in
           let _ = add_variable tbl s forloop_list indices_list (uuid :: uuids) level (permission lor f_a lor write)
-          in match a, a' with | None, _ -> () | Some a, Some a' -> aux forloop_list indices_list uuids level permission a a' ) l l'
+          in match a, a' with | Some a, Some a' -> aux forloop_list indices_list uuids level permission a a' 
+                              | _ -> ()
+        ) l l'
 
     | InitializerList l, InitializerList l' 
     | Expression l, Expression l' ->
@@ -226,8 +228,11 @@ let rec get_all_variables program program_rewrote =
 
     | For (a, b, c, d), For (a', b', c', d') ->
             let _ = print_endline "AZRETERT" in
-      let f x x' = match x, x' with | None, _ -> () | Some x, Some x' -> 
-        aux forloop_list indices_list uuids (level + 1) permission x x' in
+      let f x x' = match x, x' with | Some x, Some x' -> 
+        aux forloop_list indices_list uuids (level + 1) permission x x' 
+                                    | _ -> ()
+            
+            in
       f a a'; f b b'; f c c'; 
       begin try
             let _ = print_endline "AZRETERT" in
@@ -267,30 +272,12 @@ let rec get_all_variables program program_rewrote =
             (Calcul.constraints_from_expression cond_neg indices)
             []
         in let forloop_list_else = update_loop_indices forloop_list constraints_else
-        in let forloop_list_else = append_iterateur_constraints forloop_list_if constraints_else
-               in
-        (*
-        let constraints, constraints_neg = Calcul.ineq_normalisation_constraint cond' indices in
-        let constraints = 
-          List.fold_left (fun old cur ->
-          Calcul.generate_constraints cur @ old
-            ) []
-            constraints 
-        in let constraints_neg = 
-          List.fold_left (fun old cur ->
-          Calcul.generate_constraints cur @ old
-            ) []
-            constraints_neg
-        in let forloop_list_if = update_loop_indices forloop_list constraints
-            in let forloop_list_if = append_iterateur_constraints forloop_list_if constraints
-
-        in let constraints_neg = List.map Calcul.negate_constraint constraints_neg
-        in let forloop_list_else = update_loop_indices forloop_list constraints_neg
-            in let forloop_list_else = append_iterateur_constraints forloop_list_else constraints_neg
-            in
-     *) aux forloop_list indices_list uuids level permission cond cond';
-      aux forloop_list_if indices_list uuids level permission if_clause if_clause';
-      aux forloop_list_else indices_list uuids level permission else_clause else_clause'
+        in let forloop_list_else = append_iterateur_constraints forloop_list_else constraints_else
+        in begin
+          aux forloop_list indices_list uuids level permission cond cond';
+          aux forloop_list_if indices_list uuids level permission if_clause if_clause';
+          aux forloop_list_else indices_list uuids level permission else_clause else_clause'
+        end
     | _ -> ()
 
   in let _ = aux tbl  [] [] [] 0 0 program  program_rewrote
@@ -341,8 +328,7 @@ and create_iterateur for_loop indices =
           r
         | _ -> let _ = Printf.printf "========ERROR ===========\n%s\n" (pretty_print_ast end_cond) in failwith "not a good stop condition"
             end
-    in let op = match end_cond with | BinaryOp(op, _, _) -> op | _ -> BinOp.Eq
-    in let mone = [Calcul.LC(Constant(CInt(Hex, Num.num_of_int (-1), "")))]
+    (*in let mone = [Calcul.LC(Constant(CInt(Hex, Num.num_of_int (-1), "")))]*)
     in let expr = BinaryOp(BinOp.And, BinaryOp(BinOp.Eq, Identifier(var_name, -1), start),
                            BinaryOp(BinOp.Eq, Identifier(var_name, -1), stop))
 
