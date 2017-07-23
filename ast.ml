@@ -35,7 +35,7 @@ module UnOp = struct
       match o with
       | PostIncr -> "%s ++"
       | PostDecr -> "%s --"
-      | SizeOf  -> "sizeof( %s )" 
+      | SizeOf  -> "sizeof(%s)" 
       | PreIncr -> "++ %s" 
       | PreDecr -> "-- %s"
       | Ref     -> "&%s"

@@ -257,6 +257,14 @@ let get_array_summary variables =
          ) variables
   in out
 
+let mk_ident i =
+  Identifier (i, 0)
+let mk_simple_type l =
+  (l, (("", 0), [], DeBasic))
+let mk_constant_int n =
+  Constant(CInt(Dec, Num.num_of_int n, ""))
+let mk_declaration simple_type name ast =
+  Declaration (simple_type, [(name, -1), [], DeBasic, ast])
 
 
 let generate_bounds_structures out array_summary =
@@ -264,10 +272,11 @@ let generate_bounds_structures out array_summary =
   Hashtbl.iter
     (fun name (_, size) ->
        if size > 0 then begin
+         (*
          let name_infos = Printf.sprintf "s_%s_infos" name 
          in let _ = Printf.fprintf out "s_infos %s;\n" name_infos 
          in let e = Printf.sprintf 
-                "(int*)malloc(sizeof(int) * %d);" size 
+                "(int *) malloc(sizeof(int) * %d);" size 
          in let _ = List.iter
                 (fun p -> Printf.fprintf out
                     "%s.%s.min = %s\n%s.%s.max = %s\n"
@@ -280,6 +289,43 @@ let generate_bounds_structures out array_summary =
                     name p name
                 ) ["f_w"; "f_r"; "f_rw"]
          in ()
+            *)
+         let name_infos = Printf.sprintf "s_%s_infos" name
+         in let decl_stmt = mk_declaration [Struct("s_infos", [])] name_infos None
+         in let malloc_stmt =
+              Cast(mk_simple_type [Int; Pointer],
+                   Call(mk_ident "malloc", 
+                        [BinaryOp(BinOp.Mul,
+                                  UnaryOp(UnOp.SizeOf, Type( mk_simple_type [Int])),
+                                  mk_constant_int size
+                                 )]
+                       ))
+         in let bounds_stmts = List.fold_left 
+                (fun old c ->
+                   Assign(BinOp.Empty, Access(Member, Access(Member,
+                                 mk_ident name_infos,
+                                 mk_ident c),
+                          mk_ident "min"), malloc_stmt)
+                   :: Assign(BinOp.Empty, Access(Member, Access(Member,
+                                 mk_ident name_infos,
+                                 mk_ident c),
+                          mk_ident "max"), malloc_stmt)
+                 ::old
+                ) [] ["f_w"; "f_r"; "f_rw"]
+         in let decl_name = mk_declaration [Struct("s_array", [])] ("s_" ^ name) None
+         in let ptr_stmts = List.fold_left
+                (fun old c ->
+                   Assign(BinOp.Empty, Access(Member,
+                                 mk_ident ("s_" ^ name),
+                                 mk_ident c),
+                          mk_ident name)
+                     :: old
+                ) [] ["f_w"; "f_r"; "f_rw"]
+         in let bloc = Bloc([decl_stmt; malloc_stmt; ] @ bounds_stmts @ [decl_name] @ ptr_stmts)
+         in let _ = print_endline @@ pretty_print_ast bloc
+
+        in ()
+
        end
     ) array_summary;
   Printf.fprintf out "\n"

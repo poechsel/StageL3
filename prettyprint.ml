@@ -79,7 +79,9 @@ let rec pretty_print_ast ast =
 
 
 and pretty_print_type (spec, t) = 
-  pretty_print_decl_spec spec ^ " " ^ pretty_print_decl_type t
+  let dt = pretty_print_decl_type t
+  in let dt = String.trim dt
+  in pretty_print_decl_spec spec ^ (if String.length dt > 0 then " " ^ dt else "")
 
 and pretty_print_access_method m = match m with
   | Array -> "%s [%s]"
