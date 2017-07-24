@@ -218,11 +218,15 @@ and pretty_print_decl_spec s = __print_list pretty_print_declaration_specifiers 
 
 and pretty_print_decl decl name =  match decl with
   | DeBasic -> name
-  | DeRecursive (a, b) ->  "(" ^ pretty_print_decl_spec a ^
-                           " " ^ pretty_print_decl b name ^ ")"
+  | DeRecursive (a, b) ->  
+    let decl_spec_print = pretty_print_decl_spec a
+    in "(" ^
+    (if String.length decl_spec_print != 0 then decl_spec_print ^ " " else "" ) ^
+                            pretty_print_decl b name ^ ")"
   | DeArray (decl, spec, size) ->
-    pretty_print_decl decl name ^ "[" ^ 
-    pretty_print_decl_spec spec ^ " " ^
+    let decl_spec_print = pretty_print_decl_spec spec
+    in pretty_print_decl decl name ^ "[" ^ 
+    (if String.length decl_spec_print != 0 then decl_spec_print ^ " " else "" ) ^
     (match size with 
      | DeArraySize a -> pretty_print_ast a
      | DeArrayVla    -> "*"

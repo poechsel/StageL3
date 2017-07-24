@@ -228,13 +228,26 @@ let rec code_from_tree out target tree itsname =
     in let l' = code_from_tree out target b itsname
     in Printf.sprintf "UNION_INTERVAL(\n%s,\n%s)" l l'
 
+
+let max_uuid_iterators its =
+  List.fold_left (fun old (_, uuid, _) -> 
+      if old > uuid then old else uuid)
+    (-1) its
+
 (*
     Given all the variables, generate the code which will compute
    the bounds for the various iterators
 *)
 let create_iterators_in_c out variables =
   let iterators = get_iterators_from_variables variables 
-  in let _ = Printf.fprintf out "s_iterators it_list[%d];\n" (List.length iterators) 
+  in let nb_iterators = max_uuid_iterators iterators + 1
+  in let _ = 
+       Printf.fprintf out "%s\n" @@
+       pretty_print_ast
+    @@
+    Declaration ([Struct("s_iterators", [])], 
+                 [("it_list", -1), [], DeArray(DeBasic, [], DeArraySize(mk_constant_int nb_iterators)) , None ])
+  in let _ = Printf.fprintf out "s_iterators it_list[%d];\n" (max_uuid_iterators iterators + 1) 
   in let _ = List.iter (fun (name, uuid, constraints) ->
       let its = create_it_hashmap iterators ~filter: (fun uuid' -> uuid' < uuid)
       (*let start = Calcul.operate start its_list in
