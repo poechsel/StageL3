@@ -107,6 +107,30 @@ module BinOp = struct
     | And     -> "&&"
     | Empty   -> ""
 
+  let get_weight o = 
+    match o with
+    | Mul -> 0
+    | Div -> 0
+    | Mod -> 0
+    | Sub -> 1
+    | Add -> 1
+    | LShift -> 2
+    | RShift -> 2
+    | Slt -> 3
+    | Sgt -> 3
+    | Leq -> 3
+    | Geq -> 3
+    | Eq -> 4
+    | Neq -> 4
+    | BinAnd -> 5
+    | BinXor -> 6
+    | BinOr -> 7
+    | And -> 8
+    | Or -> 9
+    | _ -> -10
+    
+    
+
 
   let is_op_comp op =
     match op with

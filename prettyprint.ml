@@ -9,68 +9,130 @@ let __print_list fct sep l =
 let rec pretty_print_ast ast = 
   match ast with
   | Identifier (s, u) -> s (*"["^s^"="^string_of_int u^"]#"*)
+
   | InitializerList l -> 
     "{" ^ 
     if l = [] then "" 
     else __print_list pretty_print_ast ", " l
          ^ "}"
+
   | Constant c ->
     pretty_print_constant c
+
   | String c ->
     c
+
   | Call(fct, args) ->
     pretty_print_ast fct ^
     "(" ^
     __print_list pretty_print_ast ", " args ^
     ")"
+
   | Access(met, from, which) ->
     Printf.sprintf (pretty_print_access_method met) (pretty_print_ast from) (pretty_print_ast which)
+
   | UnaryOp(op, ast) ->
     UnOp.pretty_print (pretty_print_ast ast) op
+
   | BinaryOp(op, a, b) ->
-    ("(" ^ pretty_print_ast a ^ BinOp.pretty_print op ^ pretty_print_ast b ^ ")")
+    begin match a with
+    | BinaryOp(op', _, _) when BinOp.get_weight op' > BinOp.get_weight op ->
+      "(" ^ pretty_print_ast a ^ ")"
+    | _ -> pretty_print_ast a
+    end 
+    ^ BinOp.pretty_print op ^
+    begin match b with
+    | BinaryOp(op', _, _) when BinOp.get_weight op' > BinOp.get_weight op ->
+      "(" ^ pretty_print_ast b ^ ")"
+    | _ -> pretty_print_ast b
+    end 
+
   | Assign(op, a, b) ->
     pretty_print_ast a ^ " " ^ BinOp.pretty_print op ^ "= " ^ pretty_print_ast b
+
   | Expression l ->
     __print_list (pretty_print_ast) ", " l
+
   | IfThenElse(t, cond, if_sts, else_sts) ->
     let s_if = pretty_print_ast if_sts 
     in let s_else = pretty_print_ast else_sts 
     in begin match t with
       | Ternary -> "((" ^ pretty_print_ast cond ^ ") ? " ^ s_if ^ " : " ^ s_else ^ ")" 
-      | _ -> Printf.sprintf "if (%s)  \n%s\nelse\n%s\n\n" (pretty_print_ast cond) s_if s_else
+      | _ -> 
+        Printf.sprintf "if (%s)%s" (pretty_print_ast cond) s_if
+        ^ match else_sts with
+        | Bloc [] -> ""
+        | x -> mk_indent () ^ "else " ^ s_else
     end
-  | Return None -> "return;\n"
-  | Return (Some e) -> "return " ^ pretty_print_ast e  ^ ";\n"
-  | Break -> "break;\n"
-  | Continue -> "continue;\n"
-  | Goto s -> "goto " ^ s ^ ";\n"
-  | Default s -> "default :\n" ^ pretty_print_ast s
-  | Label (n, s) -> n ^ " :\n" ^ pretty_print_ast s
-  | Case (a, b) -> "case " ^ pretty_print_ast a ^ ":\n" ^ pretty_print_ast b
+
+  | Return None -> 
+    "return"
+
+  | Return (Some e) -> 
+    "return " ^ pretty_print_ast e 
+
+  | Break -> 
+    "break"
+
+  | Continue -> 
+    "continue"
+
+  | Goto s -> 
+    "goto " ^ s
+
+  | Default s -> 
+    "default :" ^ pretty_print_ast s
+
+  | Label (n, s) -> 
+    n ^ " :" ^ pretty_print_ast s
+
+  | Case (a, b) -> 
+    "case " ^ pretty_print_ast a ^ ":" ^ pretty_print_ast b
+
   | Bloc l -> 
-    let _ = incr indentation_level 
-    in let o = "{\n" ^ __print_list (fun a -> mk_indent () ^ pretty_print_ast a ^ ";") "\n" l ^ "\n}" 
+    let begin_bracket = "\n" ^ mk_indent () ^ "{\n" 
+    in let _ = incr indentation_level 
+    in let content =  
+         __print_list (fun a -> mk_indent () ^ pretty_print_ast a ^ 
+                                match a with
+                                | Bloc _ | Preproc _ | For _ | While (NoWhile, _, _) | IfThenElse _ -> ""
+                                | _ -> ";"
+                      ) "\n" l 
     in let _ = decr indentation_level 
-    in o
-  | Switch (expr, l) -> "switch (" ^ pretty_print_ast expr ^ ")" ^ pretty_print_ast l ^ "\n"
-  | Type t -> pretty_print_type t
-  | Cast (t, e) -> Printf.sprintf "(%s) %s" (pretty_print_type t) (pretty_print_ast e)
+    in let end_bracket = "\n" ^ mk_indent () ^ "}\n" 
+    in begin_bracket ^ content ^ end_bracket
+
+  | Switch (expr, l) -> 
+    "switch (" ^ pretty_print_ast expr ^ ")" ^ pretty_print_ast l 
+
+  | Type t ->
+    pretty_print_type t
+
+  | Cast (t, e) -> 
+    Printf.sprintf "(%s) %s" (pretty_print_type t) (pretty_print_ast e)
+
   | For (a, b, c, content) -> 
-    let aux x = match x with | None -> "" | Some x -> pretty_print_ast x
-    in Printf.sprintf "for (%s; %s; %s) \n%s" (aux a) (aux b) (aux c) (pretty_print_ast content)
+    let aux x = match x with 
+      | None -> "" 
+      | Some x -> pretty_print_ast x
+    in Printf.sprintf "for (%s; %s; %s)%s" (aux a) (aux b) (aux c) (pretty_print_ast content)
+
   | While (t, cond, content) ->
     Printf.sprintf (match t with 
-        | DoWhile -> "do \n%s\nwhile(%s);\n"
-        | NoWhile -> "while(%s) \n%s")
+        | DoWhile -> "do%swhile(%s)"
+        | NoWhile -> "while(%s) %s")
       (pretty_print_ast cond)
       (pretty_print_ast content)
+
   | Declaration (spec, l) ->
     pretty_print_decl_spec spec ^ " " ^
     __print_list (fun ((name, uuid) , spec, decl, ast) ->
         pretty_print_decl_spec spec ^ " " ^ pretty_print_decl decl name ^ 
-        (match ast with | None -> "" | Some a -> " = " ^ pretty_print_ast a)
+        (match ast with 
+         | None -> "" 
+         | Some a -> " = " ^ pretty_print_ast a)
       ) ", " l
+
   | FunctionDeclaration(spec, decl, other, content) ->
     pretty_print_decl_spec spec ^ " " ^
     pretty_print_decl_type decl ^ " " ^
@@ -78,7 +140,7 @@ let rec pretty_print_ast ast =
     pretty_print_ast content 
 
   | Preproc l ->
-    "#" ^ __print_list (fun x -> x) " " l ^ "\n"
+    "#" ^ __print_list (fun x -> x) " " l 
 
 
 and pretty_print_type (spec, t) = 
