@@ -209,24 +209,29 @@ let iterator_constraint_in_c out target (uuid, op, ineq, div) its_names =
 let rec code_from_tree out target tree itsname =
   match tree with
   | Calcul.TVal (op, expr, const) ->
-    let mi, ma = expression_to_c expr itsname
-    in Printf.sprintf "MAKE_OP_INTERVAL(\"%s\", %s, %s, %s, \"%s\")"
-      (Ast.BinOp.pretty_print op)
-      mi
-      ma
-      (__print_list Calcul.pretty_print_arithm "+" const)
-      target
+    let mi, ma = expression_to_c2 expr itsname
+    in Call(mk_ident "MAKE_OP_INTERVAL", 
+         [String (Ast.BinOp.pretty_print op);
+          mi; ma; 
+          Calcul.convert_arithm_to_ast (Calcul.LAdd const);
+          target]
+        )
   | Calcul.TNone ->
-    Printf.sprintf  "MAKE_FULL_INTERVAL(%s.min, %s.max)"  target target
+    Call(mk_ident "MAKE_FULL_INTERVAL",
+         [Access(Member, target, mk_ident "min");
+         Access(Member, target, mk_ident "max");
+         ])
   | Calcul.TAnd (a, b) ->
     let l = code_from_tree out target a itsname
     in let l' = code_from_tree out target b itsname
-    in Printf.sprintf "INTER_INTERVAL(\n%s,\n%s)" l l'
+    in Call(mk_ident "INTER_INTERVAL",
+            [l; l'])
 
   | Calcul.TOr (a, b) ->
     let l = code_from_tree out target a itsname
     in let l' = code_from_tree out target b itsname
-    in Printf.sprintf "UNION_INTERVAL(\n%s,\n%s)" l l'
+    in Call(mk_ident "UNION_INTERVAL",
+            [l; l'])
 
 
 let max_uuid_iterators its =
@@ -247,24 +252,25 @@ let create_iterators_in_c out variables =
     @@
     Declaration ([Struct("s_iterators", [])], 
                  [("it_list", -1), [], DeArray(DeBasic, [], DeArraySize(mk_constant_int nb_iterators)) , None ])
-  in let _ = Printf.fprintf out "s_iterators it_list[%d];\n" (max_uuid_iterators iterators + 1) 
-  in let _ = List.iter (fun (name, uuid, constraints) ->
-      let its = create_it_hashmap iterators ~filter: (fun uuid' -> uuid' < uuid)
-      (*let start = Calcul.operate start its_list in
-        let stop = Calcul.operate stop its_list in
-      *)in let target = "it_list[" ^ string_of_int uuid ^ "]" 
-      in 
-      (*let _ = Printf.fprintf out "%s.min = %s;\n" target @@ fst @@ expression_to_c start its in
-        Printf.fprintf out "%s.max = %s;\n" target @@ snd @@ expression_to_c stop its 
-      *)
+  in let content = List.fold_right (fun (name, uuid, constraints) old ->
+             (* fold right to write in the good way iterators *)
+      let its = create_it_hashmap2 iterators ~filter: (fun uuid' -> uuid' < uuid)
+      in let target = Access(Array, mk_ident "it_list", mk_constant_int uuid)
 
-
-      (*let constraints = List.sort (fun (a, _, _ ,_) (b, _, _, _) -> Pervasives.compare a b) constraints in*)
-      List.iter (fun c ->  Printf.fprintf out "%s = %s;\n" target @@ code_from_tree out target c its) (List.rev constraints)
-
-
-    ) iterators
-  in ()
+     (* no need to reverse constraints now, it will be reversed during the process*)
+      in let constraints = List.rev constraints
+      in let content = List.fold_right 
+        (fun c old ->  
+          Assign(BinOp.Empty, target, 
+                 Call(mk_ident "UNION_INTERVAL",
+                      [target;
+                       code_from_tree out target c its])) :: old
+        )
+        (List.tl constraints) 
+        [Assign(BinOp.Empty, target, code_from_tree out target (List.hd constraints) its)]
+      in List.rev content @ old
+    ) iterators [] 
+  in Printf.fprintf out "%s\n" @@ pretty_print_ast (Bloc content)
 
 
 

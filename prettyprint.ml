@@ -20,7 +20,7 @@ let rec pretty_print_ast ast =
     pretty_print_constant c
 
   | String c ->
-    c
+    "\"" ^ c ^ "\""
 
   | Call(fct, args) ->
     pretty_print_ast fct ^
