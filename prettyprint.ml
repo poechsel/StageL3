@@ -78,7 +78,7 @@ let rec pretty_print_ast ast =
     pretty_print_ast content 
 
   | Preproc l ->
-    "#" ^ __print_list (fun x -> x) " " l
+    "#" ^ __print_list (fun x -> x) " " l ^ "\n"
 
 
 and pretty_print_type (spec, t) = 

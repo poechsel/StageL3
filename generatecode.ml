@@ -390,136 +390,174 @@ let generate_parallel_loop out ast array_summary =
   let get_name name permission =
     "s_" ^ name ^ "_infos." ^ Variables.string_of_rw_flag permission
   in
+  let mk_array_member_access s fct i = 
+    Access(Array, Access(Member, s, mk_ident fct), mk_constant_int i)
+  in 
+  let get_name2 name permission =
+    Access(Member, mk_ident ("s_" ^ name ^ "_infos"), mk_ident (Variables.string_of_rw_flag permission))
+  in
   let get_pragma name permission size =
-    let name_infos = get_name name permission in
+    let name_infos = get_name2 name permission in
     let name = "s_" ^ name ^ "." ^ Variables.string_of_rw_flag permission in
     let m = foldi(fun a i ->
-        a ^ "[" ^ (name_infos ^ ".min" ^ "[" ^ string_of_int i ^ "]") ^ ":" ^
-        (name_infos ^ ".max" ^ "[" ^ string_of_int i ^ "]") ^
-        " - " ^
-        (name_infos ^ ".min" ^ "[" ^ string_of_int i ^ "]") ^
-        "]"
-      ) size ""
+        let fp = mk_array_member_access name_infos "min" i
+        in let sp =
+             BinaryOp(BinOp.Sub, 
+                      mk_array_member_access name_infos "max" i,
+                      mk_array_member_access name_infos "min" i
+                     )
+        in let content = pretty_print_ast fp ^ ":" ^ pretty_print_ast sp
+        in Access(Array, a, mk_ident content)
+      ) size (mk_ident name)
+    in let w = Call(mk_ident @@ Variables.openacc_dir_of_flag permission, [m])
     in
-    "#pragma acc data " ^ Variables.openacc_dir_of_flag permission ^ "(" ^
-    name ^ m ^ ")"
+    Preproc ([
+        "pragma";
+        "acc";
+        "data";
+        pretty_print_ast w])
 
   in let keys = hashtbl_keys array_summary 
   in let rec aux ast l = 
        match l with
-       | [] -> "#pragma acc data kernels\n" ^
-               Printf.sprintf "%s\n" (pretty_print_ast @@ extract_bloc_content ast)
+       | [] -> 
+         Bloc([Preproc ["pragma"; "acc"; "kernels"]
+               ;
+               extract_bloc_content ast
+              ])
        | name :: tl ->
          let uuids_hash, size = Hashtbl.find array_summary name 
          in let read_write_init = ref (Hashtbl.mem uuids_hash (Variables.read lor Variables.write))
-         in let pragma_structure = "#pragma acc copy(s_" ^ name ^ ")\n"
+         in let pragma_structure = 
+              Preproc ["pragma"; "acc"; pretty_print_ast @@ Call(mk_ident "copy", [mk_ident ("s_" ^ name)])]
 
          in let generate flag1 flag2 =
               if Hashtbl.mem uuids_hash flag1 && Hashtbl.mem uuids_hash flag2 then
-                (Printf.sprintf "intersection_bounds(%d, %s, %s)" size (get_name name flag1) (get_name name flag2),
-                 (if !read_write_init then
-                    foldi (fun prev i ->
-                        let gname = get_name name in
-                        prev 
-                        ^
-                        Printf.sprintf "%s.min[%d] = min3(%s.min[%d], %s.min[%d], %s.min[%d]);\n"
-                          (gname Variables.readwrite) i
-                          (gname Variables.readwrite) i
-                          (gname flag1) i
-                          (gname flag2) i
-                        ^
-                        Printf.sprintf "%s.max[%d] = max3(%s.max[%d], %s.max[%d], %s.max[%d]);\n"
-                          (gname Variables.readwrite) i
-                          (gname Variables.readwrite) i
-                          (gname flag1) i
-                          (gname flag2) i
-
-                      ) size ""
-                  else 
-                    let _ = read_write_init := true in
-                    foldi (fun prev i ->
-                        let gname = get_name name in
-                        prev 
-                        ^
-                        Printf.sprintf "%s.min[%d] = min(%s.min[%d], %s.min[%d]);\n"
-                          (gname Variables.readwrite) i
-                          (gname flag1) i
-                          (gname flag2) i
-                        ^
-                        Printf.sprintf "%s.max[%d] = max(%s.max[%d], %s.max[%d]);\n"
-                          (gname Variables.readwrite) i
-                          (gname flag1) i
-                          (gname flag2) i
-
-                      ) size ""
+                (
+                  (Call(mk_ident "intersection_bounds",
+                        [mk_constant_int size;
+                         get_name2 name flag1;
+                         get_name2 name flag2;
+                        ]
+                       ))
+                ,
+                ( let temp = (if !read_write_init then
+                                 foldi (fun prev i ->
+                                     let gname = get_name name in
+                                     let temp s fct i = 
+                                       Access(Array, Access(Member, mk_ident s, mk_ident fct), mk_constant_int i)
+                                     in 
+                                     Assign(BinOp.Empty, temp (gname Variables.readwrite) "min" i, 
+                                            Call(mk_ident "min3",
+                                                 [temp (gname Variables.readwrite) "min" i;
+                                                  temp (gname flag1) "min" i;
+                                                  temp (gname flag2) "min" i] )
+                                           )
+                                     ::
+                                     Assign(BinOp.Empty, temp (gname Variables.readwrite) "max" i, 
+                                            Call(mk_ident "max3",
+                                                 [temp (gname Variables.readwrite) "max" i;
+                                                  temp (gname flag1) "max" i;
+                                                  temp (gname flag2) "max" i] )
+                                           )
+                                     :: prev
+                                   ) size []
+                               else 
+                                 let _ = read_write_init := true in
+                                 foldi (fun prev i ->
+                                     let gname = get_name name in
+                                     let temp s fct i = 
+                                       Access(Array, Access(Member, mk_ident s, mk_ident fct), mk_constant_int i)
+                                     in 
+                                     Assign(BinOp.Empty, temp (gname Variables.readwrite) "min" i, 
+                                            Call(mk_ident "min",
+                                                 [temp (gname flag1) "min" i;
+                                                  temp (gname flag2) "min" i] )
+                                           )
+                                     ::
+                                     Assign(BinOp.Empty, temp (gname Variables.readwrite) "max" i, 
+                                            Call(mk_ident "max",
+                                                 [temp (gname flag1) "max" i;
+                                                  temp (gname flag2) "max" i] )
+                                           )
+                                     :: prev
+                                   ) size []
+                              )
+                   in temp
                  )
-                 ,
-                 pragma_structure ^
-                 (if ((flag1 = Variables.readwrite && flag2 = Variables.read)
-                      || (flag1 = Variables.read && flag2 = Variables.readwrite)) then
-                    get_pragma name (Variables.write) size ^ "\n"
-                  else 
-                  if ((flag1 = Variables.readwrite && flag2 = Variables.write)
-                      || (flag1 = Variables.write && flag2 = Variables.readwrite)) then
-                    get_pragma name (Variables.read) size ^ "\n"
-                  else ""
+                 @
+                 (
+                   [pragma_structure]
+                   @
+                   (if ((flag1 = Variables.readwrite && flag2 = Variables.read)
+                        || (flag1 = Variables.read && flag2 = Variables.readwrite)) then
+                      [get_pragma name (Variables.write) size ]
+                    else 
+                    if ((flag1 = Variables.readwrite && flag2 = Variables.write)
+                        || (flag1 = Variables.write && flag2 = Variables.readwrite)) then
+                      [get_pragma name (Variables.read) size ]
+                    else []
+                   )
+                   @
+                   [get_pragma name (Variables.readwrite) size ]
                  )
-                 ^
-                 get_pragma name (Variables.readwrite) size ^ "\n" 
-                 ,
-                 aux (transform_code_identifiers (flag2 lor flag1) 
-                        ((Hashtbl.find uuids_hash flag1)
-                         @ (Hashtbl.find uuids_hash flag2))
+                 @
+                 [(
+                   aux (transform_code_identifiers (flag2 lor flag1) 
+                          ((Hashtbl.find uuids_hash flag1)
+                           @ (Hashtbl.find uuids_hash flag2))
 
-                        (if Hashtbl.mem uuids_hash (flag2 lor flag1) then
-                           transform_code_identifiers (flag2 lor flag1)
-                             (Hashtbl.find uuids_hash (flag2 lor flag1))
-                             ast
-                         else ast
-                        )
-                     ) tl
-                )::[]
+                          (if Hashtbl.mem uuids_hash (flag2 lor flag1) then
+                             transform_code_identifiers (flag2 lor flag1)
+                               (Hashtbl.find uuids_hash (flag2 lor flag1))
+                               ast
+                           else ast
+                          )
+                       ) tl
+                 )]
+                )
+                ::[]
               else []
          in let cond_parts = generate Variables.write Variables.read
                              @ generate Variables.write Variables.readwrite
                              @ generate Variables.read Variables.readwrite
          in let else_part = 
-              ("", 
-               "",
-               pragma_structure ^
-               ((if Hashtbl.mem uuids_hash Variables.read then 
-                   get_pragma name (Variables.read) size ^ "\n"
-                 else "")
-                ^
-                (if Hashtbl.mem uuids_hash Variables.readwrite then 
-                   get_pragma name (Variables.readwrite) size ^ "\n"
-                 else "")
-                ^
-                (if Hashtbl.mem uuids_hash Variables.write then 
-                   get_pragma name (Variables.write) size ^ "\n"
-                 else "")
-               ),
-               let ast  = if Hashtbl.mem uuids_hash Variables.read then 
-                   transform_code_identifiers (Variables.read) (Hashtbl.find uuids_hash Variables.read) ast
-                 else ast
-               in let ast = if Hashtbl.mem uuids_hash Variables.readwrite then 
-                      transform_code_identifiers (Variables.readwrite) (Hashtbl.find uuids_hash Variables.readwrite) ast
-                    else ast
-               in let ast = if Hashtbl.mem uuids_hash Variables.write then 
-                      transform_code_identifiers (Variables.write) (Hashtbl.find uuids_hash Variables.write) ast
-                    else ast
-               in aux ast tl
+              [pragma_structure]
+              @
+              ((if Hashtbl.mem uuids_hash Variables.read then 
+                  [get_pragma name (Variables.read) size]
+                else [])
+               @
+               (if Hashtbl.mem uuids_hash Variables.readwrite then 
+                  [get_pragma name (Variables.readwrite) size]
+                else [])
+               @
+               (if Hashtbl.mem uuids_hash Variables.write then 
+                  [get_pragma name (Variables.write) size]
+                else [])
               )
+              @
+              [(
+                let ast  = if Hashtbl.mem uuids_hash Variables.read then 
+                    transform_code_identifiers (Variables.read) (Hashtbl.find uuids_hash Variables.read) ast
+                  else ast
+                in let ast = if Hashtbl.mem uuids_hash Variables.readwrite then 
+                       transform_code_identifiers (Variables.readwrite) (Hashtbl.find uuids_hash Variables.readwrite) ast
+                     else ast
+                in let ast = if Hashtbl.mem uuids_hash Variables.write then 
+                       transform_code_identifiers (Variables.write) (Hashtbl.find uuids_hash Variables.write) ast
+                     else ast
+                in aux ast tl
+              )]
 
-         in let parts = List.map (fun (cond, update, preproc, content) ->
-             Printf.sprintf "if (%s) {\n%s\n%s\n%s}\n" cond update preproc content) cond_parts
          in let parts = 
-              let cond, update, preproc, content = else_part in
-              let s = Printf.sprintf "{\n%s\n%s\n%s}\n" update preproc content
-              in parts @ [s]
-         in __print_list (fun x -> x) "else" parts
+              List.fold_left (fun old (cond, content) ->
+                  IfThenElse(If, cond, (Bloc content), old)
+                )
+                (Bloc else_part) cond_parts
+         in parts
 
-  in Printf.fprintf out "%s\n" @@ aux ast keys
+  in Printf.fprintf out "%s\n" @@ pretty_print_ast @@ aux ast keys
 
 
 let compute_boundaries_in_c out variables =
