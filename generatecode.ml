@@ -269,27 +269,9 @@ let mk_declaration simple_type name ast =
 
 let generate_bounds_structures out array_summary =
   Printf.fprintf out "\nGenerating structures: \n";
-  Hashtbl.iter
-    (fun name (_, size) ->
+  let code = Hashtbl.fold
+    (fun name (_, size) old ->
        if size > 0 then begin
-         (*
-         let name_infos = Printf.sprintf "s_%s_infos" name 
-         in let _ = Printf.fprintf out "s_infos %s;\n" name_infos 
-         in let e = Printf.sprintf 
-                "(int *) malloc(sizeof(int) * %d);" size 
-         in let _ = List.iter
-                (fun p -> Printf.fprintf out
-                    "%s.%s.min = %s\n%s.%s.max = %s\n"
-                    name_infos p e name_infos p e
-                ) ["f_w"; "f_r"; "f_rw"]
-         in let _ = Printf.fprintf out "s_array s_%s;\n" name
-         in let _ = List.iter
-                (fun p -> Printf.fprintf out
-                    "s_%s.%s = %s;\n"
-                    name p name
-                ) ["f_w"; "f_r"; "f_rw"]
-         in ()
-            *)
          let name_infos = Printf.sprintf "s_%s_infos" name
          in let decl_stmt = mk_declaration [Struct("s_infos", [])] name_infos None
          in let malloc_stmt =
@@ -321,14 +303,17 @@ let generate_bounds_structures out array_summary =
                           mk_ident name)
                      :: old
                 ) [] ["f_w"; "f_r"; "f_rw"]
-         in let bloc = Bloc([decl_stmt; malloc_stmt; ] @ bounds_stmts @ [decl_name] @ ptr_stmts)
-         in let _ = print_endline @@ pretty_print_ast bloc
+         in let bloc = [decl_stmt] @ bounds_stmts @ [decl_name] @ ptr_stmts
 
-        in ()
+    @ old
+
+        in bloc
 
        end
-    ) array_summary;
-  Printf.fprintf out "\n"
+       else 
+         old
+    ) array_summary [];
+  in Printf.fprintf out "%s\n" (pretty_print_ast (Bloc(code)))
 
 
 
