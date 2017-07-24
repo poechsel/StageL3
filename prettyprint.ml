@@ -77,6 +77,9 @@ let rec pretty_print_ast ast =
     __print_list pretty_print_ast " " other ^ "\n" ^
     pretty_print_ast content 
 
+  | Preproc l ->
+    "#" ^ __print_list (fun x -> x) " " l
+
 
 and pretty_print_type (spec, t) = 
   let dt = pretty_print_decl_type t
@@ -84,7 +87,7 @@ and pretty_print_type (spec, t) =
   in pretty_print_decl_spec spec ^ (if String.length dt > 0 then " " ^ dt else "")
 
 and pretty_print_access_method m = match m with
-  | Array -> "%s [%s]"
+  | Array -> "%s[%s]"
   | Member -> "%s.%s"
   | Pointer -> "%s->%s"
 

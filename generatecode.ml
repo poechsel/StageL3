@@ -2,6 +2,15 @@ open Ast
 open Utils
 open Prettyprint
 
+let mk_ident i =
+  Identifier (i, 0)
+let mk_simple_type l =
+  (l, (("", 0), [], DeBasic))
+let mk_constant_int n =
+  Constant(CInt(Dec, Num.num_of_int n, ""))
+let mk_declaration simple_type name ast =
+  Declaration (simple_type, [(name, -1), [], DeBasic, ast])
+
 
 
 (* compare to given iterators. 
@@ -54,14 +63,8 @@ let hashtbl_keys tbl =
    the iterator and str_max to the max value
 *)
 let expression_to_c expression restricted =
-  (* let _ = Hashtbl.iter
-             (fun name content ->
-           let _ = print_endline name 
-           in List.iter (fun x -> print_endline @@ "  " ^ Calcul.pretty_print_arithm x) content
-         ) expression in*)
   let l_min, l_max = Hashtbl.fold (
       fun name l (expr_m, expr_M)  ->
-        (* let _ = print_endline @@ "-> " ^ name in*)
         if l = [] then (expr_m, expr_M)
         else
           (* first, sum the parts of the computation *)
@@ -82,6 +85,32 @@ let expression_to_c expression restricted =
   in __print_list (fun x -> x) " + " l_min, 
      __print_list (fun x -> x) " + " l_max
 
+let expression_to_c2 expression restricted =
+    let a, b = Hashtbl.fold (
+      fun name l (expr_m, expr_M)  ->
+        if l = [] then (expr_m, expr_M)
+        else
+          (* first, sum the parts of the computation *)
+          let a = Calcul.convert_arithm_to_ast (Calcul.LAdd l)
+          (* get the min and the max of this simple term *)
+          in let mi, ma = 
+               if name = "" then a, a
+               else 
+                 let l = BinaryOp(BinOp.Mul, a, fst @@ Hashtbl.find restricted name)
+                 in let h = BinaryOp(BinOp.Mul, a, snd @@ Hashtbl.find restricted name) 
+                 in let mi = Call(mk_ident "min", [l; h]) 
+                 in let ma = Call(mk_ident "max", [l; h]) 
+                 in mi, ma
+          in match expr_m, expr_M with
+          | Some expr_m, Some expr_M -> 
+            (Some (BinaryOp(BinOp.Add, mi, expr_m)), Some (BinaryOp(BinOp.Add, ma, expr_M)))
+          | x, y -> 
+            (Some mi, Some ma)
+    ) expression (None, None)
+    in match (a, b) with
+    | Some a, Some b -> a, b
+    | _ -> failwith "shit happened"
+
 
 
 
@@ -96,6 +125,18 @@ let create_it_hashmap ?(filter = fun x -> true) iterators =
             if filter uuid' then 
               let base = "it_list[" ^ string_of_int uuid' ^ "]" 
               in Hashtbl.add its name' (base ^ ".min", base ^ ".max")
+            else
+              ()
+         ) iterators 
+  in its
+
+let create_it_hashmap2 ?(filter = fun x -> true) iterators =
+  let its = Hashtbl.create (List.length iterators) 
+  in let _ = List.iter 
+         (fun (name', uuid', _) ->
+            if filter uuid' then 
+              let base = Access(Array, mk_ident "it_list", mk_constant_int uuid') 
+              in Hashtbl.add its name' (Access(Member, base, mk_ident "min"), Access(Member, base, mk_ident "max"))
             else
               ()
          ) iterators 
@@ -256,15 +297,6 @@ let get_array_summary variables =
             in if a then  Hashtbl.add out name (uuid_hash, size)
          ) variables
   in out
-
-let mk_ident i =
-  Identifier (i, 0)
-let mk_simple_type l =
-  (l, (("", 0), [], DeBasic))
-let mk_constant_int n =
-  Constant(CInt(Dec, Num.num_of_int n, ""))
-let mk_declaration simple_type name ast =
-  Declaration (simple_type, [(name, -1), [], DeBasic, ast])
 
 
 let generate_bounds_structures out array_summary =
@@ -493,25 +525,53 @@ let generate_parallel_loop out ast array_summary =
 let compute_boundaries_in_c out variables =
   Hashtbl.iter
     (fun name p ->
-       let first_iteration = Hashtbl.create 3 in
-       List.iteri (fun i (permissions, iterators, accessors, _) ->
-           let its = create_it_hashmap iterators in
-           let its_list = List.map (fun (name, _, _) -> name) iterators in
-           let flag = Variables.string_of_rw_flag permissions in 
-           let name_struct = "s_" ^ name ^ "_infos" ^ "." ^ flag in
-           List.iteri (fun i access ->
-               let _ = Printf.fprintf out "{\n" in
-               let small, huge = expression_to_c (Calcul.operate access its_list) its in
-               let _ = Printf.fprintf out "int ___a = %s;\n" @@ small in
-               let _ = Printf.fprintf out "int ___b = %s;\n" @@ huge in
-               let _ = if not (Hashtbl.mem first_iteration flag) then
-                   let _ = Printf.fprintf out "%s.min[%d] = min(___a, ___b);\n" name_struct i in
-                   let _ = Printf.fprintf out "%s.max[%d] = max(___a, ___b);\n" name_struct i in
-                   Hashtbl.add first_iteration flag true
-                 else
-                   let _ = Printf.fprintf out "%s.min[%d] = min(%s.min[%d], min(___a, ___b));\n" name_struct i name_struct i in
-                   Printf.fprintf out "%s.max[%d] = max(%s.max[%d], max(___a, ___b));\n" name_struct i name_struct i in
-               Printf.fprintf out "}\n" 
+       let first_iteration = Hashtbl.create 3 
+       in List.iteri (fun i (permissions, iterators, accessors, _) ->
+           let its = create_it_hashmap2 iterators 
+           in let its_list = List.map (fun (name, _, _) -> name) iterators 
+           in let flag = Variables.string_of_rw_flag permissions 
+           in let name_struct = "s_" ^ name ^ "_infos" ^ "." ^ flag 
+           in let name_struct_ac = Access(Member, mk_ident @@ "s_" ^ name ^ "_infos", mk_ident flag)
+           in List.iteri (fun i access ->
+               let get_struct_member name =
+                 Access(Array, Access(Member, name_struct_ac, mk_ident name), mk_constant_int i)
+               in let small, huge = expression_to_c2 (Calcul.operate access its_list) its 
+               in let statements = mk_declaration [Int] "___a" (Some small) 
+                                   ::
+                                   mk_declaration [Int] "___b" (Some huge) 
+                                   :: []
+               in let update = if not (Hashtbl.mem first_iteration flag) then
+                      let _ = Hashtbl.add first_iteration flag true
+                      in Assign(BinOp.Empty, 
+                                get_struct_member "min",
+                                Call(mk_ident "min", [mk_ident "__a"; mk_ident "__b"])
+                               )
+                         ::
+                         Assign(BinOp.Empty, 
+                                get_struct_member "max",
+                                Call(mk_ident "max", [mk_ident "__a"; mk_ident "__b"])
+                               )
+                         :: []
+                    else
+                      Assign(BinOp.Empty, 
+                             get_struct_member "min",
+                             Call(mk_ident "min",
+                                  [get_struct_member "min"; 
+                                   Call(mk_ident "min", [mk_ident "__a"; mk_ident "__b"])]
+                                 )
+                            )
+                      ::
+                      Assign(BinOp.Empty, 
+                             get_struct_member "max",
+                             Call(mk_ident "max",
+                                  [get_struct_member "max"; 
+                                   Call(mk_ident "max", [mk_ident "__a"; mk_ident "__b"])]
+                                 )
+                            )
+                      :: []
+
+               in
+               Printf.fprintf out "%s\n" @@ pretty_print_ast @@ Bloc(statements @ update)
              )
              accessors
          ) 

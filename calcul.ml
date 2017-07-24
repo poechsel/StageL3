@@ -174,6 +174,41 @@ let rec convert_ast_to_arithms expr reserved =
   in convert_ast_to_arithms expr
 
 
+let rec convert_arithm_to_ast expr =
+  match expr with
+  | LAdd l ->
+    if l = [] then failwith "empty add"
+    else  List.fold_left (
+      fun old p ->
+        BinaryOp(BinOp.Add, old, convert_arithm_to_ast p)
+    ) (convert_arithm_to_ast @@ List.hd l) (List.tl l)
+  | LMul l ->
+    if l = [] then failwith "empty add"
+    else  List.fold_left (
+      fun old p ->
+        BinaryOp(BinOp.Mul, old, convert_arithm_to_ast p)
+    ) (convert_arithm_to_ast @@ List.hd l) (List.tl l)
+  | LUnop(op, x) ->
+    UnaryOp(op, convert_arithm_to_ast x)
+  | LC(x) ->
+    x
+
+
+let rec convert_operate_result_to_ast expr transform =
+  let l = Hashtbl.fold (
+      fun key content old ->
+            if Hashtbl.mem key transform then 
+              let k = Hashtbl.find key transform 
+              in BinaryOp(BinOp.Mul, convert_arithm_to_ast k, convert_arithm_to_ast content) :: old
+            else old
+    ) expr []
+  in List.fold_left (fun old k -> BinaryOp(BinOp.Add, k, old))
+    (List.hd l)
+    (List.tl l)
+
+
+
+
 (* pretty print our expression *)
 let rec pretty_print_arithm expr = 
   (
@@ -533,8 +568,7 @@ module Interval = struct
       (Bounds.Val (BinOp.Geq, expr, content), Bounds.PInft) ::
       []
     | BinOp.Neq ->
-      (Bounds.MInft, Bounds.Val (BinOp.Slt, expr, content)) :: 
-      (Bounds.Val (BinOp.Sgt, expr, content), Bounds.PInft) ::
+      (Bounds.MInft, Bounds.PInft) :: 
       []
     | BinOp.Slt | BinOp.Leq ->
       (* i < expr *)
@@ -543,6 +577,8 @@ module Interval = struct
     | BinOp.Sgt | BinOp.Geq ->
       (Bounds.Val value, Bounds.PInft) ::
       []
+
+    | _ -> failwith "incorrect"
 
 
   let rec from_tree tree =

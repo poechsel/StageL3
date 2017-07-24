@@ -228,6 +228,8 @@ and ast =
   | Case of ast * ast
   | Default of ast
 
+  | Preproc of string list
+
 
 type preprocess =
   | PrInclude of string
