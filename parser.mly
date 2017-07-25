@@ -21,6 +21,7 @@ let uuid = ref 0
 %nonassoc below_ELSE
 %nonassoc ELSE
 %token <string> PREPROC
+%token PREPROC_CUSTOM
 
 %start main             
                        
@@ -221,7 +222,14 @@ constant_expression:
 
 
 
+/*** pragma declarator ***/
+pragma_declaration:
+    | declaration_specifiers pragma_init_declarator_list ENDLINE
+        { Declaration($1, List.rev $2)}
 
+pragma_init_declarator_list:
+    | declarator
+        { let a, b, v = $1 in [a, b, v, None] }
 
 
 
@@ -551,7 +559,9 @@ type_name:
 
 statement:
     | PREPROC
-        { Preproc [$1]}
+        { Preproc (Normal [$1])}
+    | PREPROC_CUSTOM pragma_declaration
+        { Preproc (Custom $2)}
     | labeled_statement
         { $1 }
     | compound_statement

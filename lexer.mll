@@ -170,11 +170,17 @@ let ponctuators = "[" | "(" | ")" | "]" | "{" | "}" | "." | "->" | "++" | "--" |
 
 
 
+let pragma_type = 
+    "if" | "ifndef" | "ifdef" | "elif" | "else" | "include" | "define" | "undef" | "line" | "error"
 
+let skip_empty = [' ' '\t']*
+let preproc_word = [^' ' '\t' '\n']+
 
 rule token = parse    (* la "fonction" aussi s'appelle token .. *)
   | [' ' '\t']     { token lexbuf }
   | '\n' {print_endline "newline"; incr_linenum lexbuf; token lexbuf}
+
+  | '\n' skip_empty "#" "pragma" skip_empty "NOM" {PREPROC_CUSTOM}
   | '\n' [' ' '\t']* "#" (['a'-'z''A'-'Z']+ [^'\n']+ as first_word) {print_endline @@ first_word ^ "bouh"; PREPROC first_word}
   (* we don't pass with single comment anymore because it is easier for preprocessors this way *)
   | "//"[^'\n']*          { token lexbuf }

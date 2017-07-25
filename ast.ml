@@ -252,7 +252,11 @@ and ast =
   | Case of ast * ast
   | Default of ast
 
-  | Preproc of string list
+  | Preproc of pragma_type
+
+and pragma_type =
+  | Custom of ast
+  | Normal of string list
 
 
 type preprocess =

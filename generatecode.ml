@@ -365,7 +365,7 @@ let generate_parallel_loop out ast array_summary =
       ) size (mk_ident name)
     in let w = Call(mk_ident @@ Variables.openacc_dir_of_flag permission, [m])
     in
-    Preproc ([
+    Preproc (Normal [
         "pragma";
         "acc";
         "data";
@@ -375,7 +375,7 @@ let generate_parallel_loop out ast array_summary =
   in let rec aux ast l = 
        match l with
        | [] -> 
-         Bloc([Preproc ["pragma"; "acc"; "kernels"]
+         Bloc([Preproc (Normal ["pragma"; "acc"; "kernels"])
                ;
                extract_bloc_content ast
               ])

@@ -139,8 +139,10 @@ let rec pretty_print_ast ast =
     __print_list pretty_print_ast " " other ^ "\n" ^
     pretty_print_ast content 
 
-  | Preproc l ->
+  | Preproc (Normal l) ->
     "#" ^ __print_list (fun x -> x) " " l 
+  | Preproc (Custom decl) ->
+    ""
 
 
 and pretty_print_type (spec, t) = 
