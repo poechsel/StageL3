@@ -329,7 +329,7 @@ and create_iterateur for_loop indices =
         | _ -> let _ = Printf.printf "========ERROR ===========\n%s\n" (pretty_print_ast end_cond) in failwith "not a good stop condition"
             end
     (*in let mone = [Calcul.LC(Constant(CInt(Hex, Num.num_of_int (-1), "")))]*)
-    in let expr = BinaryOp(BinOp.And, BinaryOp(BinOp.Eq, Identifier(var_name, -1), start),
+    in let expr = BinaryOp(BinOp.Or, BinaryOp(BinOp.Eq, Identifier(var_name, -1), start),
                            BinaryOp(BinOp.Eq, Identifier(var_name, -1), stop))
 
     in let temp = Calcul.constraints_from_expression expr (var_name::indices)

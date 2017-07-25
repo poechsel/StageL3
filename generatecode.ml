@@ -63,29 +63,6 @@ let hashtbl_keys tbl =
    the iterator and str_max to the max value
 *)
 let expression_to_c expression restricted =
-  let l_min, l_max = Hashtbl.fold (
-      fun name l (expr_m, expr_M)  ->
-        if l = [] then (expr_m, expr_M)
-        else
-          (* first, sum the parts of the computation *)
-          let a = __print_list Calcul.pretty_print_arithm "+" l
-          (* get the min and the max of this simple term *)
-          in let mi, ma = 
-               if name = "" then (a, a)
-               else 
-                 let a = if List.length l = 1 then a else "(" ^ a ^ ")" 
-                 in let l = a ^ "*" ^ fst @@ Hashtbl.find restricted name 
-                 in let h = a ^ "*" ^ snd @@ Hashtbl.find restricted name 
-                 in let mi = "min(" ^ l ^ ", " ^ h ^ ")" 
-                 in let ma = "max(" ^ l ^ ", " ^ h ^ ")" 
-                 in mi, ma
-          in (mi::expr_m, ma::expr_M)
-    ) expression ([], [])
-  (* finally, concat all parts *)
-  in __print_list (fun x -> x) " + " l_min, 
-     __print_list (fun x -> x) " + " l_max
-
-let expression_to_c2 expression restricted =
     let a, b = Hashtbl.fold (
       fun name l (expr_m, expr_M)  ->
         if l = [] then (expr_m, expr_M)
@@ -119,18 +96,6 @@ let expression_to_c2 expression restricted =
    and var_max the variable containing the max
 *)
 let create_it_hashmap ?(filter = fun x -> true) iterators =
-  let its = Hashtbl.create (List.length iterators) 
-  in let _ = List.iter 
-         (fun (name', uuid', _) ->
-            if filter uuid' then 
-              let base = "it_list[" ^ string_of_int uuid' ^ "]" 
-              in Hashtbl.add its name' (base ^ ".min", base ^ ".max")
-            else
-              ()
-         ) iterators 
-  in its
-
-let create_it_hashmap2 ?(filter = fun x -> true) iterators =
   let its = Hashtbl.create (List.length iterators) 
   in let _ = List.iter 
          (fun (name', uuid', _) ->
@@ -172,36 +137,6 @@ let get_reindexable_vars variables =
     ) variables
   in out
 
-let iterator_constraint_in_c out target (uuid, op, ineq, div) its_names =
-  let ineq_min, ineq_max = expression_to_c ineq its_names
-  in let ineq_min = 
-       Printf.sprintf "(%s)/-(%s)" ineq_min (__print_list Calcul.pretty_print_arithm "+" div)
-  in let ineq_max = 
-       Printf.sprintf "(%s)/-(%s)" ineq_max (__print_list Calcul.pretty_print_arithm "+" div)
-  in let _ = 
-       Printf.fprintf out "// %s %s\n" (BinOp.pretty_print op) ineq_min ;
-
-  in match uuid with 
-  | ItStart -> 
-    Printf.fprintf out "%s.min = %s;\n" target @@ ineq_min
-  | ItStop ->
-    Printf.fprintf out "%s.max = %s;\n" target @@ ineq_max
-  | _ -> begin
-      match op with
-      | BinOp.Eq | BinOp.Neq ->
-        Printf.fprintf out "%s.min = min(%s.min, %s);\n" target target ineq_min;
-        Printf.fprintf out "%s.max = max(%s.max, %s);\n" target target ineq_max
-      | BinOp.Slt ->
-        Printf.fprintf out "%s.max = min(%s.max, %s);\n" target target ineq_max
-      | BinOp.Sgt ->
-        Printf.fprintf out "%s.min = max(%s.min, %s);\n" target target ineq_max
-      | BinOp.Leq ->
-        (* not sure for the +1 *)
-        Printf.fprintf out "%s.max = min(%s.max, %s+1);\n" target target ineq_max
-      | BinOp.Geq ->
-        Printf.fprintf out "%s.min = max(%s.min, %s+1);\n" target target ineq_max
-      | _ -> ()
-    end
 
 
 
@@ -209,12 +144,12 @@ let iterator_constraint_in_c out target (uuid, op, ineq, div) its_names =
 let rec code_from_tree out target tree itsname =
   match tree with
   | Calcul.TVal (op, expr, const) ->
-    let mi, ma = expression_to_c2 expr itsname
+    let mi, ma = expression_to_c expr itsname
     in Call(mk_ident "MAKE_OP_INTERVAL", 
          [String (Ast.BinOp.pretty_print op);
           mi; ma; 
           Calcul.convert_arithm_to_ast (Calcul.LAdd const);
-          target]
+          ]
         )
   | Calcul.TNone ->
     Call(mk_ident "MAKE_FULL_INTERVAL",
@@ -246,15 +181,12 @@ let max_uuid_iterators its =
 let create_iterators_in_c out variables =
   let iterators = get_iterators_from_variables variables 
   in let nb_iterators = max_uuid_iterators iterators + 1
-  in let _ = 
-       Printf.fprintf out "%s\n" @@
-       pretty_print_ast
-    @@
+  in let declaration_struct = 
     Declaration ([Struct("s_iterators", [])], 
                  [("it_list", -1), [], DeArray(DeBasic, [], DeArraySize(mk_constant_int nb_iterators)) , None ])
   in let content = List.fold_right (fun (name, uuid, constraints) old ->
              (* fold right to write in the good way iterators *)
-      let its = create_it_hashmap2 iterators ~filter: (fun uuid' -> uuid' < uuid)
+      let its = create_it_hashmap iterators ~filter: (fun uuid' -> uuid' < uuid)
       in let target = Access(Array, mk_ident "it_list", mk_constant_int uuid)
 
      (* no need to reverse constraints now, it will be reversed during the process*)
@@ -262,7 +194,7 @@ let create_iterators_in_c out variables =
       in let content = List.fold_right 
         (fun c old ->  
           Assign(BinOp.Empty, target, 
-                 Call(mk_ident "UNION_INTERVAL",
+                 Call(mk_ident "INTER_INTERVAL",
                       [target;
                        code_from_tree out target c its])) :: old
         )
@@ -270,7 +202,7 @@ let create_iterators_in_c out variables =
         [Assign(BinOp.Empty, target, code_from_tree out target (List.hd constraints) its)]
       in List.rev content @ old
     ) iterators [] 
-  in Printf.fprintf out "%s\n" @@ pretty_print_ast (Bloc content)
+  in declaration_struct::content
 
 
 
@@ -364,7 +296,7 @@ let generate_bounds_structures out array_summary =
        else 
          old
     ) array_summary [];
-  in Printf.fprintf out "%s\n" (pretty_print_ast (Bloc(code)))
+  in code
 
 
 
@@ -388,7 +320,8 @@ let transform_code_par ast variables =
 
 let transform_code_identifiers permissions uuids ast =
   Variables.rename ast uuids (function
-      | Identifier(name, u) ->Access(Member, Identifier("s_"^name, u), Identifier(Variables.string_of_rw_flag permissions, 0))
+      | Identifier(name, u) ->
+         Identifier("s_"^name^"_"^Variables.string_of_rw_flag permissions, u)
       | e -> e)
 
 
@@ -417,7 +350,7 @@ let generate_parallel_loop out ast array_summary =
   in
   let get_pragma name permission size =
     let name_infos = get_name2 name permission in
-    let name = "s_" ^ name ^ "." ^ Variables.string_of_rw_flag permission in
+    let name = "s_" ^ name ^ "_" ^ Variables.string_of_rw_flag permission in
     let m = foldi(fun a i ->
         let fp = mk_array_member_access name_infos "min" i
         in let sp =
@@ -447,8 +380,6 @@ let generate_parallel_loop out ast array_summary =
        | name :: tl ->
          let uuids_hash, size = Hashtbl.find array_summary name 
          in let read_write_init = ref (Hashtbl.mem uuids_hash (Variables.read lor Variables.write))
-         in let pragma_structure = 
-              Preproc ["pragma"; "acc"; pretty_print_ast @@ Call(mk_ident "copy", [mk_ident ("s_" ^ name)])]
 
          in let generate flag1 flag2 =
               if Hashtbl.mem uuids_hash flag1 && Hashtbl.mem uuids_hash flag2 then
@@ -506,8 +437,6 @@ let generate_parallel_loop out ast array_summary =
                  )
                  @
                  (
-                   [pragma_structure]
-                   @
                    (if ((flag1 = Variables.readwrite && flag2 = Variables.read)
                         || (flag1 = Variables.read && flag2 = Variables.readwrite)) then
                       [get_pragma name (Variables.write) size ]
@@ -541,8 +470,6 @@ let generate_parallel_loop out ast array_summary =
                              @ generate Variables.write Variables.readwrite
                              @ generate Variables.read Variables.readwrite
          in let else_part = 
-              [pragma_structure]
-              @
               ((if Hashtbl.mem uuids_hash Variables.read then 
                   [get_pragma name (Variables.read) size]
                 else [])
@@ -576,15 +503,16 @@ let generate_parallel_loop out ast array_summary =
                 (Bloc else_part) cond_parts
          in parts
 
-  in Printf.fprintf out "%s\n" @@ pretty_print_ast @@ aux ast keys
+  in aux ast keys :: []
 
 
 let compute_boundaries_in_c out variables =
-  Hashtbl.iter
+  let out_ast = ref []
+  in let _ = Hashtbl.iter
     (fun name p ->
        let first_iteration = Hashtbl.create 3 
        in List.iteri (fun i (permissions, iterators, accessors, _) ->
-           let its = create_it_hashmap2 iterators 
+           let its = create_it_hashmap iterators 
            in let its_list = List.map (fun (name, _, _) -> name) iterators 
            in let flag = Variables.string_of_rw_flag permissions 
            in let name_struct = "s_" ^ name ^ "_infos" ^ "." ^ flag 
@@ -592,7 +520,7 @@ let compute_boundaries_in_c out variables =
            in List.iteri (fun i access ->
                let get_struct_member name =
                  Access(Array, Access(Member, name_struct_ac, mk_ident name), mk_constant_int i)
-               in let small, huge = expression_to_c2 (Calcul.operate access its_list) its 
+               in let small, huge = expression_to_c (Calcul.operate access its_list) its 
                in let statements = mk_declaration [Int] "___a" (Some small) 
                                    ::
                                    mk_declaration [Int] "___b" (Some huge) 
@@ -628,13 +556,14 @@ let compute_boundaries_in_c out variables =
                       :: []
 
                in
-               Printf.fprintf out "%s\n" @@ pretty_print_ast @@ Bloc(statements @ update)
+               out_ast := Bloc (statements @ update)  :: !out_ast
              )
              accessors
          ) 
          p
     )
     variables
+  in List.rev !out_ast
 
 
 
