@@ -8,7 +8,102 @@
         Lexing.pos_lnum = pos.Lexing.pos_lnum + 1;
         Lexing.pos_bol = pos.Lexing.pos_cnum;
       }
-      }
+
+let ponctuators_hashtbl  =
+  let tbl = Hashtbl.create 0
+  in let _ = List.iter
+         (fun (k, w) ->
+            Hashtbl.add tbl k w)
+         ["!=", NEQ;
+          "==", EQ;
+          ".", DOT;
+          "...", THREEDOT;
+          "[", LBRACKET;
+          "]", RBRACKET;
+          "(", LPAREN;
+          ")", RPAREN;
+          "{", LCURLY;
+          "}", RCURLY;
+          "*=", MULASSIGN;
+          "/=", DIVASSIGN;
+          "%=", MODASSIGN;
+          "+=", ADDASSIGN;
+          "-=", SUBASSIGN;
+          "<<=", LSASSIGN;
+          ">>=", RSASSIGN;
+          "&=", ANDASSIGN;
+          "^=", XORASSIGN;
+          "|=", ORASSIGN;
+          "=", ASSIGN;
+          "<",  SLT ;
+          ">",  SGT ;
+          "<=",  LEQ ;
+          "=>",  GEQ ;
+          "++",  INCR ;
+          "--",  DECR ;
+          "->",  ARROW ;
+          "*",  MUL ;
+          "&&",  AND ;
+          "||",  OR ;
+          "&", ANDBIN;
+          "|", ORBIN;
+          "^", XORBIN;
+          "/", DIV;
+          "%", MOD;
+          "?", QUESTION;
+          ",", COMA;
+          "~", NEG;
+          "!", NOT;
+          "+", ADD;
+          "-", SUB;
+          ":", COLON;
+          ";", ENDLINE;]
+  in tbl
+
+
+let keywords_hashtbl  =
+  let tbl = Hashtbl.create 0
+  in let _ = List.iter
+         (fun (k, w) ->
+            Hashtbl.add tbl k w)
+         ["sizeof" , SIZEOF;
+          "typedef", TYPEDEF;
+          "extern", EXTERN;
+          "static", STATIC;
+          "auto", AUTO;
+          "register", REGISTER;
+          "void", VOID;
+          "char", CHAR;
+          "int", INT;
+          "short", SHORT;
+          "long", LONG;
+          "float", FLOAT;
+          "double", DOUBLE;
+          "signed", SIGNED;
+          "unsigned", UNSIGNED;
+          "__Bool", BOOL;
+          "__Complex", COMPLEX;
+          "struct", STRUCT;
+          "union", UNION;
+          "enum", ENUM;
+          "const", CONST;
+          "volatile", VOLATILE;
+          "restrict", RESTRICT;
+          "inline", INLINE;
+          "case", CASE;
+          "switch", SWITCH;
+          "goto", GOTO;
+          "for", FOR;
+          "while", WHILE;
+          "if", IF;
+          "else", ELSE;
+          "break", BREAK;
+          "continue", CONTINUE;
+          "return", RETURN;
+          "default", DEFAULT;
+          "do", DO; ]
+  in tbl
+}
 
 
 let nondigit = ['_' 'a'-'z' 'A'-'Z']
@@ -74,103 +169,26 @@ let pp_number = (digit | "." digit) (digit | identifier_nondigit | "e" sign | "E
 let ponctuators = "[" | "(" | ")" | "]" | "{" | "}" | "." | "->" | "++" | "--" | "&" | "*" | "+" | "-" | "~" | "!" | "/" | "%" | "<<" | ">>" | "<" | ">" | "<=" | ">=" | "==" | "!=" | "^" | "|" | "&&" | "||" | "?" | ":" | ";" | "..." | "=" | "*=" | "/=" | "%=" | "+=" | "-=" | "<<=" | ">>=" | "&=" | "^=" | "|=" | "," | "#" | "##" | "<:" | ":>" | "<%" | "%>" | "%:" | "%:%:"
 
 
+
+
+
 rule token = parse    (* la "fonction" aussi s'appelle token .. *)
   | [' ' '\t']     { token lexbuf }
-  | '\n' {incr_linenum lexbuf; token lexbuf}
-  | "//"          { singleline_comment lexbuf; token lexbuf }
+  | '\n' {print_endline "newline"; incr_linenum lexbuf; token lexbuf}
+  | '\n' [' ' '\t']* "#" (['a'-'z''A'-'Z']+ [^'\n']+ as first_word) {print_endline @@ first_word ^ "bouh"; PREPROC first_word}
+  (* we don't pass with single comment anymore because it is easier for preprocessors this way *)
+  | "//"[^'\n']*          { token lexbuf }
   | "/*"          { multiline_comment lexbuf; token lexbuf }
 
-  | "!="    {NEQ}
-  | "=="    {EQ}
-  | "."     {DOT}
-  | "..."   {THREEDOT}
-  | "["     {LBRACKET}
-  | "]"     {RBRACKET}
-  | "("     {LPAREN}
-  | ")"     {RPAREN}
-  | "{"     {LCURLY}
-  | "}"     {RCURLY}
-  | "*="    {MULASSIGN}
-  | "/="    {DIVASSIGN}
-  | "%="    {MODASSIGN}
-  | "+="    {ADDASSIGN}
-  | "-="    {SUBASSIGN}
-  | "<<="    {LSASSIGN}
-  | ">>="    {RSASSIGN}
-  | "&="    {ANDASSIGN}
-  | "^="    {XORASSIGN}
-  | "|="    {ORASSIGN}
-  | "="    {ASSIGN}
-
-  | "<"     { SLT }
-  | ">"     { SGT }
-  | "<="    { LEQ }
-  | "=>"    { GEQ }
-
-  | "++"    { INCR }
-  | "--"    { DECR }
-  | "->"    { ARROW }
-  | "*"   { MUL }
-  | "&&"    { AND }
-  | "||"    { OR }
-  | "&"     {ANDBIN}
-  | "|"     {ORBIN}
-  | "^"     {XORBIN}
-  | "/"     {DIV}
-  | "%"     {MOD}
-  | "?"     {QUESTION}
-  | ","     {COMA}
-  | "~"     {NEG}
-  | "!"     {NOT}
-  | "+"     {ADD}
-  | "-"     {SUB}
-  | ":"     {COLON}
-  | ";"     {ENDLINE}
-
-
-
-  | "sizeof" {SIZEOF}
-  | "typedef"   {TYPEDEF}
-  | "extern"    {EXTERN}
-  | "static"    {STATIC}
-  | "auto"      {AUTO}
-  | "register"  {REGISTER}
-  | "void"      {VOID}
-  | "char"      {CHAR}
-  | "int"       {INT}
-  | "short"     {SHORT}
-  | "long"      {LONG}
-  | "float"     {FLOAT}
-  | "double"    {DOUBLE}
-  | "signed"    {SIGNED}
-  | "unsigned"  {UNSIGNED}
-  | "__Bool"      {BOOL}
-  | "__Complex"     {COMPLEX}
-  | "struct"        {STRUCT}
-  | "union"     {UNION}
-  | "enum"      {ENUM}
-  | "const"     {CONST}
-  | "volatile"  {VOLATILE}
-  | "restrict"  {RESTRICT}
-  | "inline"    {INLINE}
-
-  | "case"      {CASE}
-  | "switch"    {SWITCH}
-  | "goto"      {GOTO}
-  | "for"       {FOR}
-  | "while"     {WHILE}
-  | "if"        {IF}
-  | "else"      {ELSE}
-  | "break"     {BREAK}
-  | "continue"  {CONTINUE}
-  | "return"    {RETURN}
-  | "default"   {DEFAULT}
-  | "do"        {DO}
-
-
+  | ponctuators as s  {if Hashtbl.mem ponctuators_hashtbl s
+    then Hashtbl.find ponctuators_hashtbl s
+    else failwith "oups"
+  }
 
   | identifier_nondigit (identifier_nondigit | digit)* as s 
-    { IDENT(s)}
+    { if Hashtbl.mem keywords_hashtbl s then
+        Hashtbl.find keywords_hashtbl s
+        else IDENT(s)}
   | string_litteral as s
     { STRING_LIT(s)}
 
@@ -238,7 +256,7 @@ and multiline_comment = parse
 and singleline_comment = parse
   | '\n'   { incr_linenum lexbuf }
   | eof    { () }
-  | _ { singleline_comment lexbuf }
+  | _ as x { print_endline (String.make 1 x) ; singleline_comment lexbuf }
 
 
 

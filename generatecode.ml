@@ -354,10 +354,12 @@ let generate_parallel_loop out ast array_summary =
     let m = foldi(fun a i ->
         let fp = mk_array_member_access name_infos "min" i
         in let sp =
+             BinaryOp(BinOp.Add,
              BinaryOp(BinOp.Sub, 
                       mk_array_member_access name_infos "max" i,
                       mk_array_member_access name_infos "min" i
-                     )
+                     ),
+               mk_constant_int 1)
         in let content = pretty_print_ast fp ^ ":" ^ pretty_print_ast sp
         in Access(Array, a, mk_ident content)
       ) size (mk_ident name)
@@ -521,9 +523,9 @@ let compute_boundaries_in_c out variables =
                let get_struct_member name =
                  Access(Array, Access(Member, name_struct_ac, mk_ident name), mk_constant_int i)
                in let small, huge = expression_to_c (Calcul.operate access its_list) its 
-               in let statements = mk_declaration [Int] "___a" (Some small) 
+               in let statements = mk_declaration [Int] "__a" (Some small) 
                                    ::
-                                   mk_declaration [Int] "___b" (Some huge) 
+                                   mk_declaration [Int] "__b" (Some huge) 
                                    :: []
                in let update = if not (Hashtbl.mem first_iteration flag) then
                       let _ = Hashtbl.add first_iteration flag true

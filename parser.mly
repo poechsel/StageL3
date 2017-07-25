@@ -20,6 +20,7 @@ let uuid = ref 0
 
 %nonassoc below_ELSE
 %nonassoc ELSE
+%token <string> PREPROC
 
 %start main             
                        
@@ -549,6 +550,8 @@ type_name:
 /*** STATEMENTS ***/
 
 statement:
+    | PREPROC
+        { Preproc [$1]}
     | labeled_statement
         { $1 }
     | compound_statement
