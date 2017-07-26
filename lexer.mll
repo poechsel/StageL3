@@ -180,8 +180,8 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
   | [' ' '\t']     { token lexbuf }
   | '\n' {print_endline "newline"; incr_linenum lexbuf; token lexbuf}
 
-  | '\n' skip_empty "#" "pragma" skip_empty "NOM" {PREPROC_CUSTOM}
-  | '\n' [' ' '\t']* "#" (['a'-'z''A'-'Z']+ [^'\n']+ as first_word) {print_endline @@ first_word ^ "bouh"; PREPROC first_word}
+  | '\n' skip_empty "#" "pragma" skip_empty "MOI" {print_endline "found preproc custom" ; PREPROC_CUSTOM}
+  | '\n' [' ' '\t']* "#" (['a'-'z''A'-'Z']+ as first_word) { let o = pragma_anonyme lexbuf in PREPROC (first_word ^ o)}
   (* we don't pass with single comment anymore because it is easier for preprocessors this way *)
   | "//"[^'\n']*          { token lexbuf }
   | "/*"          { multiline_comment lexbuf; token lexbuf }
@@ -251,6 +251,10 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
     { CONSTANT(Ast.CInt(Ast.Dec, Num.num_of_string s, suffix))}
     | (hexadecimal_constant as s) (integer_suffix? as suffix)
     {CONSTANT(Ast.CInt(Ast.Dec, Num.num_of_string s, suffix))}
+
+and pragma_anonyme = parse
+ | [^'\n']* as s  { let _ = print_endline s in s }
+ | _  { "" }
 
 and multiline_comment = parse
   | "*/"   { () }

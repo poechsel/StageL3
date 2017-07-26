@@ -224,7 +224,7 @@ constant_expression:
 
 /*** pragma declarator ***/
 pragma_declaration:
-    | declaration_specifiers pragma_init_declarator_list ENDLINE
+    | declaration_specifiers pragma_init_declarator_list 
         { Declaration($1, List.rev $2)}
 
 pragma_init_declarator_list:
@@ -560,8 +560,8 @@ type_name:
 statement:
     | PREPROC
         { Preproc (Normal [$1])}
-    | PREPROC_CUSTOM pragma_declaration
-        { Preproc (Custom $2)}
+    | PREPROC_CUSTOM LPAREN pragma_declaration RPAREN
+        { Preproc (Custom $3)}
     | labeled_statement
         { $1 }
     | compound_statement

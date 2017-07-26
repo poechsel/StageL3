@@ -250,7 +250,7 @@ let get_array_summary variables =
   in out
 
 
-let generate_bounds_structures out array_summary =
+let generate_bounds_structures out array_summary clues =
   Printf.fprintf out "\nGenerating structures: \n";
   let code = Hashtbl.fold
     (fun name (_, size) old ->
@@ -277,16 +277,17 @@ let generate_bounds_structures out array_summary =
                           mk_ident "max"), malloc_stmt)
                  ::old
                 ) [] ["f_w"; "f_r"; "f_rw"]
-         in let decl_name = mk_declaration [Struct("s_array", [])] ("s_" ^ name) None
          in let ptr_stmts = List.fold_left
                 (fun old c ->
-                   Assign(BinOp.Empty, Access(Member,
-                                 mk_ident ("s_" ^ name),
-                                 mk_ident c),
-                          mk_ident name)
-                     :: old
+                   (if Hashtbl.mem clues name then
+                       let s, uuid, o, o' = Hashtbl.find clues name
+                     in Declaration(s, [("s_" ^ name ^ "_" ^ c, -1), o, o', Some(mk_ident name)])
+                   else 
+                      let _ = Printf.printf "Type clue not found for variable %s, supposing it is a int*\n" name
+                      in mk_declaration [Int; Pointer] ("s_" ^ name ^ "_" ^ c) (Some (mk_ident name))
+                  ) :: old
                 ) [] ["f_w"; "f_r"; "f_rw"]
-         in let bloc = [decl_stmt] @ bounds_stmts @ [decl_name] @ ptr_stmts
+         in let bloc = [decl_stmt] @ bounds_stmts @ ptr_stmts
 
     @ old
 

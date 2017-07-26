@@ -450,3 +450,40 @@ let rec rename ast ids expr =
 
 
   in aux ast
+
+
+
+
+let get_preproc_types ast = 
+  let tbl = Hashtbl.create 0 
+  in let _ = print_endline "SCANNING PREPRO"
+  in let rec aux ast =
+  match ast with 
+    | Bloc l -> 
+      List.iter (fun x ->
+          let _ = print_endline "iterating" in
+          match x with
+          | Preproc (Custom t) ->
+            begin
+              match t with 
+              | Declaration (x, [(name, uuid), y, y', None]) ->
+                let _ = print_endline @@ "###" ^ name in
+                Hashtbl.add tbl name (x, uuid, y, y')
+              | _ -> failwith "parsing error?"
+            end 
+            (* foo *)
+          | x -> aux x
+        ) l
+    | Switch (_, x)
+    | While (_, _, x) 
+    | Label (_, x)
+    | Case (_, x)
+    | Default x
+    | For (_, _, _, x) ->
+      aux x
+    | IfThenElse(_, _, x, y) ->
+      aux x;
+          aux y
+    | _ -> ()
+  in let _ = aux ast
+  in tbl
