@@ -513,9 +513,9 @@ let compute_boundaries_in_c out variables =
   let out_ast = ref []
   in let _ = Hashtbl.iter
     (fun name p ->
-       let first_iteration = Hashtbl.create 3 
-       in List.iteri (fun i (permissions, iterators, accessors, _) ->
-           let its = create_it_hashmap iterators 
+       List.iteri (fun i (permissions, iterators, accessors, _) ->
+          let first_iteration = Hashtbl.create 3 
+          in let its = create_it_hashmap iterators 
            in let its_list = List.map (fun (name, _, _) -> name) iterators 
            in let flag = Variables.string_of_rw_flag permissions 
            in let name_struct = "s_" ^ name ^ "_infos" ^ "." ^ flag 
@@ -528,8 +528,8 @@ let compute_boundaries_in_c out variables =
                                    ::
                                    mk_declaration [Int] "__b" (Some huge) 
                                    :: []
-               in let update = if not (Hashtbl.mem first_iteration flag) then
-                      let _ = Hashtbl.add first_iteration flag true
+               in let update = if not (Hashtbl.mem first_iteration (i, flag)) then
+                      let _ = Hashtbl.add first_iteration (i, flag) true
                       in Assign(BinOp.Empty, 
                                 get_struct_member "min",
                                 Call(mk_ident "min", [mk_ident "__a"; mk_ident "__b"])

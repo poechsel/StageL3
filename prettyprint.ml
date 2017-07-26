@@ -54,8 +54,8 @@ let rec pretty_print_ast ast =
     __print_list (pretty_print_ast) ", " l
 
   | IfThenElse(t, cond, if_sts, else_sts) ->
-    let s_if = pretty_print_ast if_sts 
-    in let s_else = pretty_print_ast else_sts 
+    let s_if = pretty_print_line if_sts 
+    in let s_else = pretty_print_line else_sts 
     in begin match t with
       | Ternary -> "((" ^ pretty_print_ast cond ^ ") ? " ^ s_if ^ " : " ^ s_else ^ ")" 
       | _ -> 
@@ -144,6 +144,10 @@ let rec pretty_print_ast ast =
   | Preproc (Custom decl) ->
     ""
 
+and pretty_print_line l =
+  match l with
+  | IfThenElse _ | While _ | For _ | Declaration _ | Bloc _ -> pretty_print_ast l
+  | x -> pretty_print_ast x ^ ";\n"
 
 and pretty_print_type (spec, t) = 
   let dt = pretty_print_decl_type t

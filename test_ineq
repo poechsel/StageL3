@@ -1,5 +1,5 @@
 {
-#pragma MOI int a
+#pragma MOI (int* a)
 for (int i = 0; i < N; ++i) {
     if (i > 100 )
         b[i] = 0;
