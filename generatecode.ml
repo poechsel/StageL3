@@ -518,7 +518,6 @@ let compute_boundaries_in_c out variables =
           in let its = create_it_hashmap iterators 
            in let its_list = List.map (fun (name, _, _) -> name) iterators 
            in let flag = Variables.string_of_rw_flag permissions 
-           in let name_struct = "s_" ^ name ^ "_infos" ^ "." ^ flag 
            in let name_struct_ac = Access(Member, mk_ident @@ "s_" ^ name ^ "_infos", mk_ident flag)
            in List.iteri (fun i access ->
                let get_struct_member name =

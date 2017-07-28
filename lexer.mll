@@ -38,7 +38,7 @@ let ponctuators_hashtbl  =
           "<",  SLT ;
           ">",  SGT ;
           "<=",  LEQ ;
-          "=>",  GEQ ;
+          ">=",  GEQ ;
           "++",  INCR ;
           "--",  DECR ;
           "->",  ARROW ;

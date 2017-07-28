@@ -38,7 +38,6 @@ let analyse ?(verbose = true) ?(output_channel = stderr) ast ast_expanded =
     in let var_type_clues = Variables.get_preproc_types ast
     in let var_access = filter_global_variables var_access 
     in let array_summary = Generatecode.get_array_summary var_access
-    in let temp = Generatecode.get_reindexable_vars var_access 
       
       
       
@@ -51,7 +50,7 @@ let analyse ?(verbose = true) ?(output_channel = stderr) ast ast_expanded =
     in let code_parallel = Generatecode.generate_parallel_loop output_channel ast array_summary
     in let _ = Printf.fprintf output_channel "%s\n" @@
          pretty_print_ast @@
-         Bloc (code_iterators @ code_structures @ code_boundaries @ code_parallel)
+         Ast.Bloc (code_iterators @ code_structures @ code_boundaries @ code_parallel)
 
 
    (* in let ast = Generatecode.transform_code_par ast var_access
@@ -85,24 +84,6 @@ let parse () = Parser.main Lexer.token lexbuf
 
 
 
-let test_ineq ?(verbose=true) path =
-    let _ = if verbose then print_endline "Parsing file" 
-    in let ast = Parser.main Lexer.token (Lexing.from_channel @@ open_in path) 
-    in let [ast] = ast 
-    in let _ = print_endline @@ pretty_print_ast ast
-    in let results = Calcul.constraints_from_expression ast ["i"; "j"]
-    in let _ = 
-         Calcul.CEnv.iter
-           (fun a b -> 
-              List.iter 
-                (fun b ->print_endline @@ a ^ "  =>      " ^ 
-                                          Interval.to_str (fun b ->  pexp a (TVal b)) b ) 
-                                          
-                                          (Calcul.Interval.from_tree b)
-           )
-             results
-
-    in ()
 
 
 let main () = 
