@@ -64,8 +64,10 @@ struct s_iterator MAKE_OP_INTERVAL (char* op, int min_value, int max_value, int 
         out.min = min(min_value/d, max_value/d);
         out.max = max(min_value/d, max_value/d);
     } else if (strncmp(">", op, 1) == 0) {
+        // d > 0 -> the inequality isn't reversed
         if (d > 0) {
             out.min = min(min_value / d, max_value / d) + 1;
+        // d < 0 -> the inequality is reversed. It became '<=' 
         } else if (d < 0) {
             out.max = max(min_value / d, max_value / d);
         }
@@ -74,6 +76,18 @@ struct s_iterator MAKE_OP_INTERVAL (char* op, int min_value, int max_value, int 
             out.max = max(min_value / d, max_value / d);
         } else if (d < 0) {
             out.min = min(min_value / d, max_value / d) + 1;
+        }
+    } else if (strncmp("<", op, 1) == 0) {
+        if (d > 0) {
+            out.max = max(min_value / d, max_value / d) - 1;
+        } else if (d < 0) {
+            out.min = min(min_value / d, max_value / d);
+        }
+    } else if (strncmp(">=", op, 2) == 0) {
+        if (d > 0) {
+            out.min = min(min_value / d, max_value / d);
+        } else if (d < 0) {
+            out.max = max(min_value / d, max_value / d) - 1;
         }
     }
 

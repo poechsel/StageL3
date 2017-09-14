@@ -10,7 +10,7 @@ let debug_access r =
         List.iter (fun (p, f, i, uuid) ->
             match (p,  f, i, uuid) with
             | p, [], [], _ ->
-        Printf.printf "%s: %d, %s\n" name level (print_rw_flag p)
+              Printf.printf "%s: %d, %s\n" name level (print_rw_flag p)
             | p, f, l , _-> 
               let n = 
                 pretty_print_ast @@ List.fold_left (fun a b -> Ast.Access(Ast.Array, a, b)) (Ast.Identifier (name, 0)) l
