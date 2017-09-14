@@ -14,6 +14,11 @@ To compile this project, you must have OCaml installed with ocamlbuild. Just typ
 `./main.native file.c` will generate the code (data transfers + code itself) corresponding to the file `file.c`
 To compile the outputed code you must link the file "library.h"
 
+
+Due to the fact that the analysis it does doesn't infer datatype, you can indicate what is the datatype of an object with a pragma.
+`#pragma TYPE_VAR (int *A)` indicates that `A` is of type `int *`.
+(more generally, just type how a variable was declared inside paranthesis)
+
 ## What it can do:
 This tool will generate optimize data transfer given a C code.
 
