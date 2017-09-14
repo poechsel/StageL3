@@ -2,30 +2,7 @@
 #include <string.h>
 #include <limits.h>
 
-#define N 1000
-
-
-struct s_iterator {
-    int min;
-    int max;
-};
-struct s_bounds {
-    int *min;
-    int *max;
-};
-
-struct s_infos {
-
-    struct s_bounds f_r;
-    struct s_bounds f_w;
-    struct s_bounds f_rw;
-};
-
-struct s_array {
-    int * f_r;
-    int * f_w;
-    int * f_rw;
-};
+#include "library.h"
 
 int min(int a, int b) {
     return (a < b) ? a : b;
