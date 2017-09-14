@@ -80,10 +80,6 @@ let uuid_iterateur = ref 0
 let uuid_constraints = ref 0
 
 
-let pretty_print_iterator it = 
-  let (var_name, _, start, stop, (_, step)) = it
-  in Printf.sprintf "(%s %s %s %s)" var_name (pretty_print_ast start) (pretty_print_ast stop) (pretty_print_ast step)
-
 
 let rec detect_pure_for_loop program =
   let rec aux program = 
@@ -117,14 +113,8 @@ let rec detect_pure_for_loop program =
 let update_loop_indices loop_indices constraints =
   let constraints_name = List.map (fun (x, _) -> x) constraints
   in let constraints_name = List.sort_uniq Pervasives.compare constraints_name
-  in let _ = Printf.printf "comparing " in
-  let _ = List.iter (fun (x ) -> Printf.printf "%s " x) constraints_name in
-  let _ = Printf.printf "  <=>  " in
-  let _ = List.iter (fun (x, _, _) -> Printf.printf "%s " x) loop_indices in
-  let _ = print_newline () in
-  let loop_indices = List.map (fun (name, uuid, c) ->
+  in let loop_indices = List.map (fun (name, uuid, c) ->
       if List.mem name constraints_name then
-        let _ = Printf.printf "updating it\n" in
         let _ = incr uuid_iterateur in
         (name, !uuid_iterateur, c)
       else (name, uuid, c)
@@ -132,7 +122,6 @@ let update_loop_indices loop_indices constraints =
   in let to_add = List.fold_left ( fun prev name ->
       if not (List.exists (fun (x, _, _) -> x = name) loop_indices) then
         let _ = incr uuid_iterateur in
-        let _ = Printf.printf "creating it\n" in
         (name, !uuid_iterateur, []) :: prev
       else prev
     ) [] constraints_name 
@@ -189,7 +178,6 @@ let rec get_all_variables program program_rewrote =
 
     | Access (Array, a, b), Access(Array, a', b') ->  begin
         aux forloop_list (b'::indices_list) uuids level (permission lor is_array) a a';
-        (*print_endline @@ "====> adding " ^ pretty_print_ast b ^ " with flah " ^ (print_rw_flag permission);*)
         aux forloop_list indices_list uuids level ((permission lor read) land lnot write land lnot is_array) b b';
       end
 
@@ -227,7 +215,6 @@ let rec get_all_variables program program_rewrote =
       aux forloop_list indices_list uuids level permission a a'
 
     | For (a, b, c, d), For (a', b', c', d') ->
-            let _ = print_endline "AZRETERT" in
       let f x x' = match x, x' with | Some x, Some x' -> 
         aux forloop_list indices_list uuids (level + 1) permission x x' 
                                     | _ -> ()
@@ -235,12 +222,10 @@ let rec get_all_variables program program_rewrote =
             in
       f a a'; f b b'; f c c'; 
       begin try
-            let _ = print_endline "AZRETERT" in
           (* we create iterators from the expandend expression *)
           let it_name, constraints' = create_iterateur (For(a', b', c', d')) forloop_list
             in let forloop_list = update_loop_indices forloop_list constraints'
             in let forloop_list = append_iterateur_constraints forloop_list constraints'
-            in let _ = print_endline "AZRETERT" 
             (*TODO move content pure loop for index rewriting here *)
             in  aux forloop_list indices_list uuids level permission d d'
 
@@ -333,49 +318,10 @@ and create_iterateur for_loop indices =
                            BinaryOp(BinOp.Eq, Identifier(var_name, -1), stop))
 
     in let temp = Calcul.constraints_from_expression expr (var_name::indices)
-    in let _ = Calcul.CEnv.iter (fun k c -> print_endline k) temp
     in var_name, [var_name, Calcul.CEnv.find var_name temp]
   (*	in var_name, (var_name, ItStart, BinOp.Eq, Calcul.operate start indices, mone) :: (var_name, ItStop, op, Calcul.operate stop indices, mone) :: []*)
 
   | _ -> raise Not_found
-
-
-(*and create_iterateur for_loop indices =
-  match for_loop with
-  | For(Some start, Some end_cond, Some it, stmts) ->
-    let var_name, indices, it = match start with
-      | Declaration(_, [(name, _), _, _, Some start])  
-      | Assign(BinOp.Empty, Identifier(name, _), start) -> 
-
-        let indices = name :: List.map (fun (x, _, _) -> x) indices in
-        let indices = unique_list indices in
-        let temp = Calcul.operate start indices in
-        let cons = (name, !Calcul.uuid_constraints, BinOp.Eq, temp, [Calcul.LC(Constant(CInt(Hex, Num.num_of_int (-1), "")))])
-		in let _ = incr Calcul.uuid_constraints
-        in name, indices, cons
-      | _ -> failwith "start indices bad formatted"
-    in let constraints = Calcul.ineq_normalisation_constraint end_cond indices
-    in let constraints = List.fold_left
-           ( fun o (op, ineq) -> (Calcul.generate_constraints (op, ineq)) @ o)
-           []
-           constraints
-    in let temp = var_name, it :: constraints
-    in let _ = 
-         (*let _ = print_endline "=============" in
-           let _ = print_endline @@ pretty_print_ast stmts in *)
-         (*let r = get_all_variables ([stmts]) in 
-           if has_access r var_name write then
-             let _ = print_endline "Not a pure loop"
-             in raise Not_found
-           else *)
-         print_endline "Found for pure loop"
-    in temp
-
-  | _ -> raise Not_found
-
-
-
-*)
 
 
 
@@ -456,18 +402,15 @@ let rec rename ast ids expr =
 
 let get_preproc_types ast = 
   let tbl = Hashtbl.create 0 
-  in let _ = print_endline "SCANNING PREPRO"
   in let rec aux ast =
   match ast with 
     | Bloc l -> 
       List.iter (fun x ->
-          let _ = print_endline "iterating" in
           match x with
           | Preproc (Custom t) ->
             begin
               match t with 
               | Declaration (x, [(name, uuid), y, y', None]) ->
-                let _ = print_endline @@ "###" ^ name in
                 Hashtbl.add tbl name (x, uuid, y, y')
               | _ -> failwith "parsing error?"
             end 

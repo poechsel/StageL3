@@ -178,9 +178,9 @@ let preproc_word = [^' ' '\t' '\n']+
 
 rule token = parse    (* la "fonction" aussi s'appelle token .. *)
   | [' ' '\t']     { token lexbuf }
-  | '\n' {print_endline "newline"; incr_linenum lexbuf; token lexbuf}
+  | '\n' {incr_linenum lexbuf; token lexbuf}
 
-  | '\n' skip_empty "#" "pragma" skip_empty "MOI" {print_endline "found preproc custom" ; PREPROC_CUSTOM}
+  | '\n' skip_empty "#" "pragma" skip_empty "TYPE_VAR" {PREPROC_CUSTOM}
   | '\n' [' ' '\t']* "#" (['a'-'z''A'-'Z']+ as first_word) { let o = pragma_anonyme lexbuf in PREPROC (first_word ^ o)}
   (* we don't pass with single comment anymore because it is easier for preprocessors this way *)
   | "//"[^'\n']*          { token lexbuf }
@@ -188,7 +188,7 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
 
   | ponctuators as s  {if Hashtbl.mem ponctuators_hashtbl s
     then Hashtbl.find ponctuators_hashtbl s
-    else failwith "oups"
+    else failwith "This ponctuator wasn't found"
   }
 
   | identifier_nondigit (identifier_nondigit | digit)* as s 
@@ -253,7 +253,7 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
     {CONSTANT(Ast.CInt(Ast.Dec, Num.num_of_string s, suffix))}
 
 and pragma_anonyme = parse
- | [^'\n']* as s  { let _ = print_endline s in s }
+ | [^'\n']* as s  { s }
  | _  { "" }
 
 and multiline_comment = parse
@@ -266,7 +266,7 @@ and multiline_comment = parse
 and singleline_comment = parse
   | '\n'   { incr_linenum lexbuf }
   | eof    { () }
-  | _ as x { print_endline (String.make 1 x) ; singleline_comment lexbuf }
+  | _  { singleline_comment lexbuf }
 
 
 

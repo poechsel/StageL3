@@ -3,13 +3,6 @@ open Utils
 open Prettyprint
 
 
-(* our constant foldings doesn't work for struct members *)
-
-type constant_propagation =
-  | CstConst of ast
-  | CstNotConst
-  | CstUnknown
-
 
 
 let key_to_string name ver = name ^ ";" ^ string_of_int ver
@@ -127,7 +120,6 @@ let constant_propagation expr =
         match a with
         | Identifier (name, _) ->
           let a, env = propagate env a 
-          in let _ = print_endline @@ pretty_print_ast a 
           in let a' = BinaryOp(BinOp.Add, a, one) 
           in let env = Env.add_binding env name a' 
           in a, env

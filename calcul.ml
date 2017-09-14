@@ -352,8 +352,7 @@ let is_expr_abi_form expression =
 
 (* finally, do the magic *)
 let operate expr reserved =
-  let _ = Printf.printf "operating on : %s\n" (Prettyprint.pretty_print_ast expr) 
-  in let expr = expand expr 
+  let expr = expand expr 
   in let expr = convert_ast_to_arithms expr reserved 
   in let expr = reorient expr reserved 
   in let expr = move_unop_sub expr  
@@ -423,13 +422,6 @@ let generate_constraints (op, ineq)  =
         in let temp = !uuid_constraints
         in let _ = incr uuid_constraints
         in (key, ItUuid temp, op, ineq', content) :: old
-        (*          in let str = Hashtbl.fold (fun key content b ->
-                      b ^ "+" ^ key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content
-                    ) ineq ""
-                    in let _ = print_endline @@
-                       "-(" ^key ^ "*" ^ __print_list Calcul.pretty_print_arithm "+" content ^ ")"
-                       ^ BinOp.pretty_print op ^ str
-        *)      
   ) ineq []
 
 
@@ -475,8 +467,7 @@ let constraints_from_expression expr reserved =
 
          in Hashtbl.fold (
            fun key content old ->
-             let _ = print_endline key 
-             in if key = "" || content == [] then old
+             if key = "" || content == [] then old
              else 
                let ineq' = Hashtbl.copy ineq 
                in let _ = Hashtbl.remove ineq' key

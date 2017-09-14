@@ -212,7 +212,6 @@ let transform_code_par ast variables =
          (fun name p -> 
             List.iter
               (fun (permissions, _, _, uuids) ->
-                 (*       let _ = print_endline @@ "seeing " ^ name  ^ " id = " ^ (__print_list string_of_int "," uuids) in*)
                  if Variables.is_array_flag permissions then
                    ast := Variables.rename !ast uuids (function
                        | Identifier(name, u) ->Access(Member, Identifier("s_"^name, u), Identifier(Variables.string_of_rw_flag permissions, 0))
@@ -251,7 +250,6 @@ let get_array_summary variables =
 
 
 let generate_bounds_structures out array_summary clues =
-  Printf.fprintf out "\nGenerating structures: \n";
   let code = Hashtbl.fold
     (fun name (_, size) old ->
        if size > 0 then begin
@@ -309,7 +307,6 @@ let transform_code_par ast variables =
       (fun name p -> 
          List.iter
            (fun (permissions, _, _, uuids) ->
-              (*       let _ = print_endline @@ "seeing " ^ name  ^ " id = " ^ (__print_list string_of_int "," uuids) in*)
               if Variables.is_array_flag permissions then
                 ast := Variables.rename !ast uuids (function
                     | Identifier(name, u) ->Access(Member, Identifier("s_"^name, u), Identifier(Variables.string_of_rw_flag permissions, 0))
