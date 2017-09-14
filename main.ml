@@ -20,25 +20,31 @@ let analyse ?(verbose = true) ?(output_channel = stderr) ast ast_expanded =
          Ast.Bloc (code_iterators @ code_structures @ code_boundaries @ code_parallel)
     in ()
 
+let read_file filename = 
+  let lines = ref [] in
+  let chan = open_in filename in
+  try
+    while true; do
+      lines := input_line chan :: !lines
+    done; !lines
+  with End_of_file ->
+    close_in chan;
+    List.rev !lines ;;
+
+
+
 let compile ?(optimisation_level=0) ?(verbose=true) path =
   begin
-    let ast = Parser.main Lexer.token (Lexing.from_channel @@ open_in path) 
+    (* I know converting a file to a string is bad and that I should use channel, must I must add a '\n' at the begin of the file for everything to work correctly*)
+    let file_content = List.fold_left (fun a b -> a ^ b ^ "\n") ("\n") (read_file path) 
+    in let ast = Parser.main_parsing_file Lexer.token (Lexing.from_string file_content) 
     in let ast = Ast.Bloc ast 
     in let ast_expanded = (constant_propagation ast) 
     in let _ = analyse ~verbose:verbose ast ast_expanded
     in ()
-    (*in detect_pure_for_loop e*)
   end
 
-(* stdin désigne l'entrée standard (le clavier) *)
-(* lexbuf est un canal ouvert sur stdin *)
 
-let lexbuf = Lexing.from_channel stdin
-
-(* on enchaîne les tuyaux: lexbuf est passé à Lexer.token,
-   et le résultat est donné à Parser.main *)
-
-let parse () = Parser.main Lexer.token lexbuf
 
 
 

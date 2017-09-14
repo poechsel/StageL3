@@ -16,18 +16,23 @@ let uuid = ref 0
 
 
 %token MULASSIGN DIVASSIGN MODASSIGN ADDASSIGN SUBASSIGN LSASSIGN RSASSIGN ANDASSIGN XORASSIGN ORASSIGN ASSIGN 
-%token DOT RPAREN LPAREN RBRACKET LBRACKET RCURLY LCURLY INCR DECR ARROW MUL ANDBIN ORBIN XORBIN LEQ SLT SGT GEQ EQ NEQ DIV AND OR QUESTION THREEDOT COMA RSHIFT LSHIFT SUB NEG NOT ADD ENDLINE COLON MOD
+%token DOT RPAREN LPAREN RBRACKET LBRACKET RCURLY LCURLY INCR DECR ARROW MUL ANDBIN ORBIN XORBIN LEQ SLT SGT GEQ EQ NEQ DIV AND OR QUESTION THREEDOT COMA RSHIFT LSHIFT SUB NEG NOT ADD ENDLINE COLON MOD EOF
 
 %nonassoc below_ELSE
 %nonassoc ELSE
 %token <string> PREPROC
 %token PREPROC_CUSTOM
 
-%start main             
+%start main
+%start main_parsing_file
                        
 %type <Ast.ast list> main
+%type <Ast.ast list> main_parsing_file
 
 %%
+main_parsing_file:
+    | block_item_list EOF
+        { $1 }
 
 main:                     
     | statement ENDLINE

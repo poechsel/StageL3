@@ -177,6 +177,7 @@ let skip_empty = [' ' '\t']*
 let preproc_word = [^' ' '\t' '\n']+
 
 rule token = parse    (* la "fonction" aussi s'appelle token .. *)
+| eof {EOF}
   | [' ' '\t']     { token lexbuf }
   | '\n' {incr_linenum lexbuf; token lexbuf}
 
@@ -188,7 +189,7 @@ rule token = parse    (* la "fonction" aussi s'appelle token .. *)
 
   | ponctuators as s  {if Hashtbl.mem ponctuators_hashtbl s
     then Hashtbl.find ponctuators_hashtbl s
-    else failwith "This ponctuator wasn't found"
+    else failwith @@ s ^ ": This ponctuator wasn't found"
   }
 
   | identifier_nondigit (identifier_nondigit | digit)* as s 
